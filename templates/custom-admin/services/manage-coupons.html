@@ -1,0 +1,403 @@
+{% extends 'custom-admin/base.html' %}
+{% load static %}
+{% block content %}
+
+<section class="manageActivitiesPage managepadding manageallpage">
+  <div class="container-fluid">
+    <div class="row">
+      <div class="col-md-12">
+        <div class="topContent">
+          <h2 class="H2Heading">Manage Coupons</h2>
+          <button class="topContentButton" data-bs-toggle="modal" data-bs-target="#addCouponModal">
+            <i class="fa fa-plus" aria-hidden="true"></i>
+            Add Coupon
+          </button>
+        </div>
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{% if message.tags == "error" %}danger alert-dismissible fade show{% else %}{{message.tags}} alert-dismissible fade show{% endif %}" role="alert">
+                    {{ message }}
+                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <div class="scrollableTable">
+            <div class="tableInputFilter">
+                <form method="GET" class="mb-4">
+                    <div class="input-group">
+                        <input type="search" class="customInput searchTable" name="search" 
+                               placeholder="Search coupon by id, code" 
+                               value="{{ search_query }}">
+                    </div>
+                </form>
+            </div>
+          <div>
+            <table cellpadding="1" cellspacing="1">
+              <tr >
+                <th>Coupon ID</th>
+                <th>Code</th>
+                <th>Amount</th>
+                <th>Percent</th>
+                <th>Valid From</th>
+                <th>Valid Until</th>
+                <th>Max Uses</th>
+                <th>Used</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+              <tbody>
+                {% for coupon in coupons %}
+                <tr>
+                    <td>{{ coupon.coupon_id }}</td>
+                    <td>{{ coupon.coupon_code }}</td>
+                    <td>{{ coupon.amount }}</td>
+                    <td>{{ coupon.percent }}%</td>
+                    <td>{{ coupon.start_date }}</td>
+                    <td>{{ coupon.end_date|default:"-" }}</td>
+                    <td>{{ coupon.max_use }}</td>
+                    <td>{{ coupon.used }}</td>
+                    <td>
+                        <div class="form-check form-switch">
+                            <form method="post" action="{% url 'admin_panel:coupon_toggle' coupon.id %}">
+                                {% csrf_token %}
+                                <input class="form-check-input toggle-status" 
+                                   type="checkbox" 
+                                   {% if coupon.status %}checked{% endif %}
+                                   onchange="this.form.submit()">
+                            </form>
+                        </div>
+                    </td>
+                    <td>
+                        <button class="tableActionBtn edit-coupon" 
+                                data-coupon-id="{{ coupon.id }}"
+                                data-code="{{ coupon.coupon_code }}"
+                                data-amount="{{ coupon.amount }}"
+                                data-percent="{{ coupon.percent }}"
+                                data-minimum-plan-amount="{{ coupon.minimum_plan_amount }}"
+                                data-start-date="{{ coupon.start_date|date:'Y-m-d' }}"
+                                data-end-date="{{ coupon.end_date|date:'Y-m-d' }}"
+                                data-max-use="{{ coupon.max_use }}"
+                                data-status="{{ coupon.status|lower }}">
+                            <i class="fa fa-edit"></i>
+                        </button>
+                        <button class="tableActionBtn delete-coupon" 
+                                data-coupon-id="{{ coupon.id }}"
+                                {% if coupon.used > 0 %}disabled{% endif %}>
+                            <i class="fa fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+            {% comment %} {% if coupons.paginator.num_pages > 1 %} {% endcomment %}
+            <div class="tablePagination">
+                <nav aria-label="Page navigation example">
+                    <ul class="pagination">
+                        {% if coupons.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ coupons.previous_page_number }}" aria-label="Previous">
+                                    <span aria-hidden="true">&laquo;</span>
+                                </a>
+                            </li>
+                        {% endif %}
+                        {% for num in coupons.paginator.page_range %}
+                            {% if num == coupons.number %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ num }}</span>
+                                </li>
+                            {% else %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                        {% if coupons.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ coupons.next_page_number }}" aria-label="Next">
+                                    <span aria-hidden="true">&raquo;</span>
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+            {% comment %} {% endif %} {% endcomment %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- Add Coupon Modal -->
+<div class="modal fade customModal addDataModal" id="addCouponModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="H2Heading">Add New Coupon</h6>
+                <button type="button" class="hideClose_Modal" data-bs-dismiss="modal">
+                    <img src="{% static 'admin/images/close.png' %}" alt="" class="img-fluid">
+                </button>
+            </div>
+
+            <div class="modal-body">
+                <form method="post" action="{% url 'admin_panel:coupon_create' %}">
+                    {% csrf_token %}
+                    <div class="row row-gap-4">
+                        <div class="col-md-12">
+                            <label class="inputLabel">Coupon Code</label>
+                            <input type="text" name="coupon_code" class="customInput" placeholder="Enter Coupon Code" required>
+                        </div>
+
+                        <div class="col-md-12">
+                            <label class="inputLabel">Discount Type</label>
+                            <div class="d-flex gap-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="discount_type" id="fixed_amount" value="amount" checked>
+                                    <label class="inputLabel" for="fixed_amount">Fixed Amount</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="discount_type" id="percentage" value="percent">
+                                    <label class="inputLabel" for="percentage">Percentage</label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-12" id="amount_input">
+                            <label class="inputLabel">Fixed Amount</label>
+                            <input type="number" name="amount" class="customInput" step="0.01" min="0" value="0">
+                        </div>
+                        
+                        <div class="col-md-12" id="percent_input" style="display: none;">
+                            <label class="inputLabel">Percentage (%)</label>
+                            <input type="number" name="percent" class="customInput" step="0.01" min="0" max="100" value="0">
+                        </div>
+
+                        <div class="col-md-12" id="minimum_plan_amount_input">
+                            <label class="inputLabel">Minumum Plan Amount</label>
+                            <input type="number" name="minimum_plan_amount" class="customInput" step="0.01" min="0" value="0">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="inputLabel">Start Date</label>
+                            <input type="date" name="start_date" class="customInput" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="inputLabel">End Date</label>
+                            <input type="date" name="end_date" class="customInput">
+                        </div>
+
+                        <div class="col-md-12">
+                            <label class="inputLabel">Maximum Uses</label>
+                            <input type="number" name="max_use" class="customInput" min="1" value="1" required>
+                        </div>
+
+                        <div class="modalFooter">
+                            <button type="button" class="customButton" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="customButton ms-2">Add Coupon</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Coupon Modal -->
+<div class="modal fade customModal addDataModal" id="editCouponModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="H2Heading">Edit Coupon</h6>
+                <button type="button" class="hideClose_Modal" data-bs-dismiss="modal">
+                    <img src="{% static 'admin/images/close.png' %}" alt="" class="img-fluid">
+                </button>
+            </div>
+
+            <div class="modal-body">
+                <form method="post" id="editCouponForm">
+                    {% csrf_token %}
+                    <div class="row row-gap-4">
+                        <div class="col-md-12">
+                            <label class="inputLabel">Coupon Code</label>
+                            <input type="text" name="coupon_code" id="edit_code" class="customInput" required>
+                        </div>
+
+                        <div class="col-md-12 mb-3">
+                            <label class="inputLabel">Discount Type</label>
+                            <div class="d-flex gap-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="discount_type" id="edit_fixed_amount" value="amount">
+                                    <label class="inputLabel" for="edit_fixed_amount">Fixed Amount</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="discount_type" id="edit_percentage" value="percent">
+                                    <label class="inputLabel" for="edit_percentage">Percentage</label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-12" id="edit_amount_input">
+                            <label class="inputLabel">Fixed Amount</label>
+                            <input type="number" name="amount" id="edit_amount" class="customInput" step="0.01" min="0">
+                        </div>
+                        
+                        <div class="col-md-12" id="edit_percent_input" style="display: none;">
+                            <label class="inputLabel">Percentage (%)</label>
+                            <input type="number" name="percent" id="edit_percent" class="customInput" step="0.01" min="0" max="100">
+                        </div>
+
+                        <div class="col-md-12" id="edit_minimum_plan_amount_input">
+                            <label class="inputLabel">Minimun Plan Amount</label>
+                            <input type="number" name="minimum_plan_amount" id="edit_minimum_plan_amount" class="customInput" step="0.01" min="0">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="inputLabel">Start Date</label>
+                            <input type="date" name="start_date" id="edit_start_date" class="customInput" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="inputLabel">End Date</label>
+                            <input type="date" name="end_date" id="edit_end_date" class="customInput">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="inputLabel">Maximum Uses</label>
+                            <input type="number" name="max_use" id="edit_max_use" class="customInput" min="1" required>
+                        </div>
+
+                        {% comment %} <div class="col-md-6">
+                            <label class="inputLabel">Status</label>
+                            <div class="customSingleSelect">
+                                <div class="select-icon">
+                                    <i class="fa fa-angle-down selectIcon"></i>
+                                    <select name="status" id="edit_status" class="icons_select2">
+                                        <option value="true">Active</option>
+                                        <option value="false">Inactive</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div> {% endcomment %}
+
+                        <div class="modalFooter">
+                            <button type="button" class="customButton" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="customButton ms-2">Update</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Coupon Modal -->
+<div class="modal fade customModal addDataModal" id="deleteCouponModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content text-center" style="height: 340px;">
+            <div class="modal-body">
+                <img src="{% static 'admin/images/svg-icon/Delete.svg' %}" alt="">
+                <form method="post" id="deleteCouponForm">
+                    {% csrf_token %}
+                    <div class="row">
+                        <div class="col-md-12 my-4">
+                            <h2 class="H2Heading">Confirm Delete</h2>
+                            <h5 class="H5Heading mt-3">Are you sure you want to delete this coupon? This action cannot be undone.</h5>
+                        </div>
+
+                        <div class="modalFooter">
+                            <button type="button" class="customButton" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="customRedButton ms-3">Delete</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extrajs %}
+<script>
+    $(document).ready(function() {
+        // Add Coupon Modal
+        $('input[name="discount_type"]').change(function() {
+            if ($(this).val() === 'amount') {
+                $('#amount_input').show();
+                $('#percent_input').hide();
+                $('input[name="percent"]').val(0);
+            } else {
+                $('#amount_input').hide();
+                $('#percent_input').show();
+                $('input[name="amount"]').val(0);
+            }
+        });
+    
+        // Edit Coupon Modal
+        $('.edit-coupon').click(function() {
+            var couponId = $(this).data('coupon-id');
+            var code = $(this).data('code');
+            var amount = $(this).data('amount');
+            var percent = $(this).data('percent');
+            var minimumPlanAmount = $(this).data('minimum-plan-amount');
+            var startDate = $(this).data('start-date');
+            var endDate = $(this).data('end-date');
+            var maxUse = $(this).data('max-use');
+            var status = $(this).data('status');
+    
+            $('#edit_code').val(code);
+            $('#edit_amount').val(amount);
+            $('#edit_minimum_plan_amount').val(minimumPlanAmount);
+            $('#edit_percent').val(percent);
+            $('#edit_start_date').val(startDate);
+            $('#edit_end_date').val(endDate);
+            $('#edit_max_use').val(maxUse);
+            $('#edit_status').val(status.toString()).trigger('change.select2');
+    
+            // Set radio button based on existing values
+            if (amount > 0) {
+                $('#edit_fixed_amount').prop('checked', true);
+                $('#edit_amount_input').show();
+                $('#edit_percent_input').hide();
+            } else {
+                $('#edit_percentage').prop('checked', true);
+                $('#edit_amount_input').hide();
+                $('#edit_percent_input').show();
+            }
+            
+            $('#editCouponForm').attr('action', `/coupons/${couponId}/edit/`);
+            $('#editCouponModal').modal('show');
+
+            
+        });
+        // Delete Coupon Modal
+        $('.delete-coupon').click(function() {
+            var couponId = $(this).data('coupon-id');
+            $('#deleteCouponForm').attr('action', `/coupons/${couponId}/delete/`);
+            $('#deleteCouponModal').modal('show');
+        });
+    
+        // Edit Modal Radio Change
+        $('input[name="discount_type"]').change(function() {
+            if ($(this).val() === 'amount') {
+                $('#edit_amount_input').show();
+                $('#edit_percent_input').hide();
+                $('#edit_percent').val(0);
+            } else {
+                $('#edit_amount_input').hide();
+                $('#edit_percent_input').show();
+                $('#edit_amount').val(0);
+            }
+        });
+
+        
+    });
+</script>
+{% endblock %}

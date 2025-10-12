@@ -1,0 +1,565 @@
+{% extends 'custom-admin/base.html' %}
+{% load static %}
+{% block content %}
+
+<section class="manageActivitiesPage managepadding manageallpage">
+  <div class="container-fluid">
+    <div class="row">
+      <div class="col-md-12">
+        <div class="topContent">
+          <h2 class="H2Heading">Manage Subscription Plans</h2>
+          <button class="topContentButton" data-bs-toggle="modal" data-bs-target="#addPlanModal">
+            <i class="fa fa-plus" aria-hidden="true"></i>
+            Add Plan
+          </button>
+        </div>
+
+        {% if messages %}
+          {% for message in messages %}
+            <div class="alert alert-{% if message.tags == "error" %}danger alert-dismissible fade show{% else %}{{message.tags}} alert-dismissible fade show{% endif %}" role="alert">
+              {{ message }}
+              <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+          {% endfor %}
+        {% endif %}
+
+        <div class="scrollableTable">
+          <div class="tableInputFilter">
+            <form method="GET" class="mb-4">
+              <div class="input-group">
+                <input type="search" class="customInput searchTable" name="search" 
+                       placeholder="Search by plan ID or name" value="{{ search_query }}">
+              </div>
+            </form>
+          </div>
+
+          <table cellpadding="1" cellspacing="1">
+              <tr>
+                <th>Plan ID</th>
+                <th>Name</th>
+                <th>Target Audience</th>
+                <th>Price</th>
+                <th>Interval</th>
+                <th>Properties</th>
+                <th>Invoice Uploads</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            <tbody>
+              {% for plan in plans %}
+              <tr>
+                <td>{{ plan.plan_id }}</td>
+                <td>{{ plan.name }}</td>
+                <td>{{ plan.get_target_audience_display }}</td>
+                <td>{{ plan.price }}</td>
+                <td>{{ plan.get_interval_display }}</td>
+                <td>
+                  {% if plan.unlimited_properties %}
+                    Unlimited
+                  {% else %}
+                    {{ plan.property_limit }}
+                  {% endif %}
+                </td>
+                <td>
+                  {% if plan.unlimited_invoice_uploads %}
+                    Unlimited
+                  {% else %}
+                    {{ plan.invoice_upload_limit }}
+                  {% endif %}
+                </td>
+                <td>
+                  <span class="badge bg-{% if plan.status %}success{% else %}secondary{% endif %}">
+                    {% if plan.status %}Active{% else %}Inactive{% endif %}
+                  </span>
+                </td>
+                <td>
+                  <button class="tableActionBtn edit-plan" 
+                          data-plan-id="{{ plan.id }}"
+                          data-name="{{ plan.name }}"
+                          data-target-audience="{{ plan.target_audience }}"
+                          data-price="{{ plan.price }}"
+                          data-interval="{{ plan.interval }}"
+                          data-description="{{ plan.description }}"
+                          data-property-limit="{{ plan.property_limit }}"
+                          data-unlimited-properties="{{ plan.unlimited_properties|yesno:'true,false' }}"
+                          data-invoice-upload-limit="{{ plan.invoice_upload_limit }}"
+                          data-unlimited-invoice-uploads="{{ plan.unlimited_invoice_uploads|yesno:'true,false' }}"
+                          data-features="{{ plan.feature_list|join:'||' }}"
+                          data-status="{{ plan.status|yesno:'true,false' }}">
+                    <i class="fa fa-edit"></i>
+                  </button>
+                  <button class="tableActionBtn delete-plan" data-id="{{ plan.id }}">
+                    <i class="fa fa-trash"></i>
+                  </button>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% comment %} <div class="tablePagination">
+            <nav aria-label="Page navigation example">
+                <ul class="pagination">
+                    {% if plans.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ plans.previous_page_number }}" aria-label="Previous">
+                                <span aria-hidden="true">&laquo;</span>
+                            </a>
+                        </li>
+                    {% endif %}
+                    {% for num in plans.paginator.page_range %}
+                        {% if num == plans.number %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ num }}</span>
+                            </li>
+                        {% else %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    {% if plans.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ plans.next_page_number }}" aria-label="Next">
+                                <span aria-hidden="true">&raquo;</span>
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+          </div> {% endcomment %}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Add Plan Modal -->
+<div class="modal fade customModal addDataModal" id="addPlanModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="H2Heading">Add New Plan</h6>
+        <button type="button" class="hideClose_Modal" data-bs-dismiss="modal">
+          <img src="{% static 'admin/images/close.png' %}" alt="" class="img-fluid">
+        </button>
+      </div>
+      <div class="modal-body">
+        <form method="post" action="{% url 'admin_panel:plan_create' %}">
+          {% csrf_token %}
+          <div class="row row-gap-4">
+            <div class="col-md-12">
+              <label class="inputLabel">Plan Name</label>
+              <input type="text" name="name" class="customInput" placeholder="Enter Plan Name" required>
+            </div>
+            <div class="col-md-12">
+              <label class="inputLabel">Target Audience</label>
+              <select name="target_audience" class="customInput">
+            <option value="individuals">For individuals</option>
+            <option value="startups">For startups</option>
+            <option value="big_companies">For big companies</option>
+        </select>
+            </div>
+            <div class="col-md-6">
+              <label class="inputLabel">Price</label>
+              <input type="number" name="price" class="customInput" step="0.01" placeholder="Enter Price" required>
+            </div>
+            <div class="col-md-6">
+              <label class="inputLabel">Billing Interval</label>
+              <select name="interval" class="customInput">
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+              </select>
+            </div>
+            <div class="col-md-12">
+              <label class="inputLabel">Description</label>
+              <textarea name="description" class="customInput" rows="3" placeholder="Enter Description"></textarea>
+            </div>
+            <div class="col-md-12">
+              <label class="inputLabel">Custom Features</label>
+              <div id="customFeaturesContainer">
+                <!-- Dynamic input fields will be appended here -->
+              </div>
+              <button type="button" class="customButton mt-2" id="addFeatureBtn">
+                <i class="fa fa-plus"></i> Add Feature
+              </button>
+            </div>
+            <div class="col-md-6">
+              <div class="form-check">
+                <input type="checkbox" class="form-check-input" name="unlimited_properties" id="unlimited_properties">
+                <label class="inputLabel" for="unlimited_properties">Unlimited Properties</label>
+              </div>
+              <div class="property-limit-field">
+                <label class="inputLabel">Property Limit</label>
+                <input type="number" name="property_limit" class="customInput" placeholder="Enter Property Limit">
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-check">
+                <input type="checkbox" class="form-check-input" name="unlimited_invoice_uploads" id="unlimited_invoice_uploads">
+                <label class="inputLabel" for="unlimited_invoice_uploads">Unlimited Invoice Uploads</label>
+              </div>
+              <div class="invoice-limit-field">
+                <label class="inputLabel">Invoice Upload Limit</label>
+                <input type="number" name="invoice_upload_limit" class="customInput" placeholder="Enter Invoice Upload Limit">
+              </div>
+            </div>
+            <div class="modalFooter">
+              <button type="button" class="customButton" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" class="customButton ms-2">Add Plan</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Delete Plan Modal -->
+<div class="modal fade customModal addDataModal" id="deletePlanModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content text-center" style="height: 340px;">
+      <div class="modal-body">
+        <img src="{% static 'admin/images/svg-icon/Delete.svg' %}" alt="" />
+        <form method="post" id="deletePlanForm">
+          {% csrf_token %}
+          <div class="row">
+            <div class="col-md-12 my-4">
+              <h2 class="H2Heading">Confirm Delete</h2>
+              <h5 class="H5Heading mt-3">Are you sure you want to delete this plan? This action cannot be undone.</h5>
+            </div>
+            <div class="modalFooter">
+              <button type="button" class="customButton" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" class="customRedButton ms-3">Delete</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Edit Plan Modal -->
+<div class="modal fade customModal addDataModal" id="editPlanModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="H2Heading">Edit Subscription Plan</h6>
+        <button type="button" class="hideClose_Modal" data-bs-dismiss="modal">
+          <img src="{% static 'admin/images/close.png' %}" alt="" class="img-fluid" />
+        </button>
+      </div>
+      <div class="modal-body">
+        <form method="post" id="editPlanForm">
+          {% csrf_token %}
+          <input type="hidden" id="edit_id" name="plan_id" />
+          <div class="row row-gap-4">
+            <div class="col-md-12">
+              <label class="inputLabel">Plan Name</label>
+              <input type="text" id="edit_name" name="name" class="customInput" required>
+            </div>
+            <div class="col-md-12">
+              <label class="inputLabel">Target Audience</label>
+            <select id="edit_target_audience" name="target_audience" class="customInput">
+              <option value="individuals">For individuals</option>
+              <option value="startups">For startups</option>
+              <option value="big_companies">For big companies</option>
+          </select>
+            </div>
+            <div class="col-md-12">
+              <label class="inputLabel">Price</label>
+              <input type="number" id="edit_price" name="price" class="customInput" step="0.01" min="0" required />
+            </div>
+
+            <div class="col-md-12">
+              <label class="inputLabel">Interval</label>
+              <select id="edit_interval" name="interval" class="customInput">
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+              </select>
+            </div>
+
+            <div class="col-md-12">
+              <label class="inputLabel">Description</label>
+              <textarea id="edit_description" name="description" class="customInput"></textarea>
+            </div>
+            <div class="col-md-12">
+              <label class="inputLabel">Custom Features</label>
+              <div id="editCustomFeaturesContainer">
+                <!-- Dynamic feature fields will be populated here -->
+              </div>
+              <button type="button" class="customButton mt-2" id="editAddFeatureBtn">
+                <i class="fa fa-plus"></i> Add Feature
+              </button>
+            </div>
+
+            <div class="col-md-6">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="edit_unlimited_properties" name="unlimited_properties" />
+                <label class="inputLabel" for="edit_unlimited_properties">Unlimited Properties</label>
+              </div>
+              <div class="property-limit-field">
+                <label class="inputLabel">Property Limit</label>
+                <input type="number" id="edit_property_limit" name="property_limit" class="customInput">
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="edit_unlimited_invoice_uploads" name="unlimited_invoice_uploads" />
+                <label class="inputLabel" for="edit_unlimited_invoice_uploads">Unlimited Invoice Uploads</label>
+              </div>
+              <div class="invoice-limit-field">
+                <label class="inputLabel">Invoice Upload Limit</label>
+                <input type="number" id="edit_invoice_upload_limit" name="invoice_upload_limit" class="customInput">
+              </div>
+            </div>
+
+            <div class="col-md-12">
+              <label class="inputLabel">Status</label>
+              <div class="customSingleSelect">
+                <div class="select-icon">
+                  <i class="fa fa-angle-down selectIcon"></i>
+                  <select name="status" id="edit_status" class="icons_select2">
+                    <option value="true">Active</option>
+                    <option value="false">Inactive</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="modalFooter">
+              <button type="button" class="customButton" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" class="customButton ms-2">Update</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extrajs %}
+{% comment %} <script>
+  $(document).ready(function () {
+     // Open Edit Modal
+  $('.edit-plan').click(function () {
+    let planId = $(this).data('plan-id');
+    let planName = $(this).data('name');
+    let targetAudience = $(this).data('target-audience');
+    let planPrice = $(this).data('price');
+    let planInterval = $(this).data('interval');
+    let planDescription = $(this).data('description');
+    let propertyLimit = $(this).data('property-limit');
+    let unlimitedProperties = $(this).data('unlimited-properties');
+    let invoiceUploadLimit = $(this).data('invoice-upload-limit');
+    let unlimitedInvoiceUploads = $(this).data('unlimited-invoice-uploads');
+    let featuresString = $(this).data('features');
+    let features = [];
+
+    if (featuresString && typeof featuresString === 'string') {
+      features = featuresString.split('||');
+    }
+    console.log(features);
+
+
+    $('#edit_id').val(planId);
+    $('#edit_name').val(planName);
+    $('#edit_target_audience').val(targetAudience);
+    $('#edit_price').val(planPrice);
+    $('#edit_interval').val(planInterval);
+    $('#edit_description').val(planDescription);
+    $('#edit_property_limit').val(propertyLimit);
+    $('#edit_unlimited_properties').prop('checked', unlimitedProperties);
+    $('#edit_invoice_upload_limit').val(invoiceUploadLimit);
+    $('#edit_unlimited_invoice_uploads').prop('checked', unlimitedInvoiceUploads);
+    $('#editCustomFeaturesContainer').empty();
+      features.forEach((f, i) => {
+        $('#editCustomFeaturesContainer').append(`
+          <div class="custom-feature-field mb-2 d-flex align-items-center">
+            <input type="text" name="custom_features[]" value="${f}" class="customInput" placeholder="Enter new feature" />
+            <button type="button" class="btn btn-danger btn-sm remove-feature">×</button>
+          </div>
+        `);
+      });
+    let editFeatureCount = features.length;
+
+  $('#editAddFeatureBtn').off('click').on('click', function () {
+    editFeatureCount++;
+    $('#editCustomFeaturesContainer').append(`
+      <div class="custom-feature-field mb-2 d-flex align-items-center">
+        <input type="text" name="custom_features[]" class="customInput" placeholder="Enter feature ${editFeatureCount}" />
+        <button type="button" class="btn btn-danger btn-sm remove-feature">×</button>
+      </div>
+    `);
+  });
+    // Toggle limit fields based on unlimited checkboxes
+    //$('.property-limit-field').toggle(!unlimitedProperties);
+   // $('.invoice-limit-field').toggle(!unlimitedInvoiceUploads);
+
+    $('#editPlanForm').attr('action', `/plans/${planId}/edit/`);
+    $('#editPlanModal').modal('show');
+  });
+
+
+    $('.delete-plan').click(function () {
+      const planId = $(this).data('id');
+      $('#deletePlanForm').attr('action', `/plans/${planId}/delete/`);
+      $('#deletePlanModal').modal('show');
+    });
+  });
+  
+</script>
+<script>
+  $(document).ready(function () {
+    let featureCount = 0;
+
+    $('#addFeatureBtn').click(function () {
+      featureCount++;
+      $('#customFeaturesContainer').append(`
+        <div class="custom-feature-field mb-2 d-flex align-items-center">
+          <input type="text" name="custom_features[]" class="customInput" placeholder="Enter new feature" />
+          <button type="button" class="btn btn-danger btn-sm remove-feature">×</button>
+        </div>
+      `);
+    });
+  });
+
+  $(document).on('click', '.remove-feature', function () {
+    $(this).closest('.custom-feature-field').remove();
+  });
+</script> {% endcomment %}
+
+<script>
+$(document).ready(function () {
+  let editFeatureCount = 0;
+
+  // Open Edit Modal
+  $('.edit-plan').click(function () {
+    let planId = $(this).data('plan-id');
+    let planName = $(this).data('name');
+    let targetAudience = $(this).data('target-audience');
+    let planPrice = $(this).data('price');
+    let planInterval = $(this).data('interval');
+    let planDescription = $(this).data('description');
+    let propertyLimit = $(this).data('property-limit');
+    let unlimitedProperties = $(this).data('unlimited-properties');
+    let invoiceUploadLimit = $(this).data('invoice-upload-limit');
+    let unlimitedInvoiceUploads = $(this).data('unlimited-invoice-uploads');
+    let planStatus = $(this).data('status');
+    let featuresString = $(this).data('features');
+    let features = [];
+
+    if (featuresString && typeof featuresString === 'string') {
+      features = featuresString.split('||').filter(f => f.trim() !== '');
+    }
+
+    // Populate form fields
+    $('#edit_id').val(planId);
+    $('#edit_name').val(planName);
+    $('#edit_target_audience').val(targetAudience);
+    $('#edit_price').val(planPrice);
+    $('#edit_interval').val(planInterval);
+    $('#edit_description').val(planDescription);
+    $('#edit_property_limit').val(propertyLimit);
+    $('#edit_unlimited_properties').prop('checked', unlimitedProperties);
+    $('#edit_invoice_upload_limit').val(invoiceUploadLimit);
+    $('#edit_unlimited_invoice_uploads').prop('checked', unlimitedInvoiceUploads);
+    $('#edit_status').val(planStatus ? 'true' : 'false').trigger('change.select2');;
+
+    // Clear and populate features
+    $('#editCustomFeaturesContainer').empty();
+    editFeatureCount = 0;
+    
+    features.forEach((feature, index) => {
+      if (feature.trim()) {
+        editFeatureCount++;
+        $('#editCustomFeaturesContainer').append(`
+          <div class="custom-feature-field mb-2 d-flex align-items-center">
+            <input type="text" name="custom_features[]" value="${feature.trim()}" class="customInput me-2" placeholder="Enter feature" />
+            <button type="button" class="btn btn-danger btn-sm remove-feature">×</button>
+          </div>
+        `);
+      }
+    });
+
+    // Toggle limit fields based on unlimited checkboxes
+    $('.property-limit-field').toggle(!unlimitedProperties);
+    $('.invoice-limit-field').toggle(!unlimitedInvoiceUploads);
+
+    // Set form action
+    $('#editPlanForm').attr('action', `/plans/${planId}/edit/`);
+    $('#editPlanModal').modal('show');
+  });
+
+  // Add new feature in edit modal
+  $(document).on('click', '#editAddFeatureBtn', function (e) {
+    e.preventDefault();
+    editFeatureCount++;
+    $('#editCustomFeaturesContainer').append(`
+      <div class="custom-feature-field mb-2 d-flex align-items-center">
+        <input type="text" name="custom_features[]" class="customInput me-2" placeholder="Enter new feature" />
+        <button type="button" class="btn btn-danger btn-sm remove-feature">×</button>
+      </div>
+    `);
+  });
+
+  // Remove feature
+  $(document).on('click', '.remove-feature', function () {
+    $(this).closest('.custom-feature-field').remove();
+  });
+
+  // Toggle property limit field
+  $(document).on('change', '#edit_unlimited_properties', function () {
+    $('.property-limit-field').toggle(!$(this).is(':checked'));
+    if ($(this).is(':checked')) {
+      $('#edit_property_limit').val('');
+    }
+  });
+
+  // Toggle invoice upload limit field
+  $(document).on('change', '#edit_unlimited_invoice_uploads', function () {
+    $('.invoice-limit-field').toggle(!$(this).is(':checked'));
+    if ($(this).is(':checked')) {
+      $('#edit_invoice_upload_limit').val('');
+    }
+  });
+
+  // Delete plan modal
+  $('.delete-plan').click(function () {
+    const planId = $(this).data('id');
+    $('#deletePlanForm').attr('action', `/admin-panel/plans/${planId}/delete/`);
+    $('#deletePlanModal').modal('show');
+  });
+
+  // Add feature functionality for create modal
+  let createFeatureCount = 0;
+  $('#addFeatureBtn').click(function (e) {
+    e.preventDefault();
+    createFeatureCount++;
+    $('#customFeaturesContainer').append(`
+      <div class="custom-feature-field mb-2 d-flex align-items-center">
+        <input type="text" name="custom_features[]" class="customInput me-2" placeholder="Enter new feature" />
+        <button type="button" class="btn btn-danger btn-sm remove-feature">×</button>
+      </div>
+    `);
+  });
+
+  // Toggle fields in create modal
+  $('#unlimited_properties').change(function () {
+    $('.property-limit-field').toggle(!$(this).is(':checked'));
+    if ($(this).is(':checked')) {
+      $('input[name="property_limit"]').val('');
+    }
+  });
+
+  $('#unlimited_invoice_uploads').change(function () {
+    $('.invoice-limit-field').toggle(!$(this).is(':checked'));
+    if ($(this).is(':checked')) {
+      $('input[name="invoice_upload_limit"]').val('');
+    }
+  });
+});
+</script>
+{% endblock %}

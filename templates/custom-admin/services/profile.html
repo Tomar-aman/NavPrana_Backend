@@ -1,0 +1,155 @@
+{% extends 'custom-admin/base.html' %}
+{% load static %}
+{% block content %}
+
+<section class="manageActivitiesPage managepadding manageallpage">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-12">
+                <!-- THIS IS A TOP CONTENT START -->
+                <div class="topContent">
+                    <h2 class="H2Heading">{{title}}</h2>
+                </div>
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{% if message.tags == "error" %}danger alert-dismissible fade show{% else %}{{message.tags}} alert-dismissible fade show{% endif %}" role="alert">
+                            {{ message }}
+                            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                              </button>
+                        </div>
+                        
+                    {% endfor %}
+                {% endif %}
+
+                <!-- Profile Picture Section -->
+                <div class="lightCard mb-4">
+                    <div class="text-center">
+                        <div class="profile-pic-wrapper mx-auto" style="width: 150px; height: 150px; border-radius: 50%; position: relative;">
+                            {% if user.profile_picture %}
+                                <img src="{{ user.profile_picture.url }}" alt="Profile Picture" class="img-fluid rounded-circle" style="width: 100%; height: 100%; object-fit: cover;">
+                            {% else %}
+                                <div class="default-profile">
+                                    {{ user.full_name|first|upper }}
+                                </div>
+                            {% endif %}
+                            <label for="profile_picture" class="pen-icon">
+                                <i class="fa fa-pencil"></i>
+                            </label>
+                        </div>
+                        <form method="post" enctype="multipart/form-data" class="mt-3" style="display: none;">
+                            {% csrf_token %}
+                            <input type="file" name="profile_picture" id="profile_picture" accept="image/*">
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Personal Information Section -->
+                <div class="lightCard">
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="row row-gap-4">
+                            <div class="col-md-6">
+                                <label class="inputLabel">First Name</label>
+                                <input type="text" name="first_name" class="customInput" value="{{ user.first_name }}" required placeholder="Enter First Name">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="inputLabel">Last Name</label>
+                                <input type="text" name="last_name" class="customInput" value="{{ user.last_name }}" required placeholder="Enter Last Name">
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="inputLabel">Email</label>
+                                <input type="email" class="customInput" value="{{ user.email }}" readonly>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="inputLabel">Phone Number</label>
+                                <input type="text" name="phone_number" class="customInput" value="{{ user.phone_number|default:'' }}">
+                            </div>
+
+                            {% comment %} <div class="col-md-6">
+                                <label class="inputLabel">City</label>
+                                <div class="customSingleSelect">
+                                    <div class="select-icon">
+                                        <i class="fa fa-angle-down selectIcon"></i>
+                                        <select name="city" class="icons_select2" single="single">
+                                            <option value="">Select City</option>
+                                            {% for city in cities %}
+                                                <option value="{{ city.id }}" {% if user.city_id == city.id %}selected{% endif %}>
+                                                    {{ city.name }}, {{ city.country }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div> {% endcomment %}
+
+                            <div class="col-md-12">
+                                <div class="w-25 ms-auto">
+                                    <button type="submit" class="customButton">Update Profile</button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+             <!-- SMTP Settings Section -->
+            <h4 class="H2Heading mt-4">SMTP Settings</h4>
+             <div class="lightCard mt-4">
+                <form method="post" action="{% url 'admin_panel:update_smtp' %}">
+                    {% csrf_token %}
+                    <div class="row row-gap-4">
+                        <div class="col-md-6">
+                            <label class="inputLabel">SMTP Host</label>
+                            <input type="text" name="smtp_host" class="customInput" value="{{ smtp_settings.host }}" placeholder="Enter SMTP Host" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="inputLabel">SMTP Port</label>
+                            <input type="number" name="smtp_port" class="customInput" value="{{ smtp_settings.port }}" placeholder="Enter SMTP Port" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="inputLabel">SMTP Username</label>
+                            <input type="text" name="smtp_username" class="customInput" value="{{ smtp_settings.username }}" placeholder="Enter SMTP Username" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="inputLabel">SMTP Password</label>
+                            <input type="password" name="smtp_password" class="customInput" value="{{ smtp_settings.password }}" placeholder="Enter SMTP Password" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="inputLabel">From Email</label>
+                            <input type="email" name="from_email" class="customInput" value="{{ smtp_settings.from_email }}" placeholder="Enter From Email" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center mt-4">
+                                <input type="checkbox" name="use_tls" id="use_tls" class="form-check-input me-2" {% if smtp_settings.use_tls %}checked{% endif %}>
+                                <label class="inputLabel mb-0" for="use_tls">Use TLS</label>
+                            </div>
+                        </div>
+
+                        <div class="col-md-12">
+                            <div class="w-25 ms-auto">
+                                <button type="submit" class="customButton">Update SMTP Settings</button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</section>
+
+<script>
+document.getElementById('profile_picture').addEventListener('change', function() {
+    if (this.files && this.files[0]) {
+        this.closest('form').submit();
+    }
+});
+</script>
+
+{% endblock %}

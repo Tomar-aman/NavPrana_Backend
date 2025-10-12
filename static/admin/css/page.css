@@ -1,0 +1,199 @@
+/*-=========================== LOGIN PAGE START ======-=-============= */
+section.loginPage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  background-color: #deeeff;
+}
+
+section.loginPage ::placeholder {
+  color: #666 !important;
+}
+
+section.loginPage .loginCard {
+  border-radius: 12px;
+  background-color: #fff;
+  margin: auto;
+  width: 600px;
+}
+
+section.loginPage .customCard {
+  padding: 20px;
+  border-radius: 10px;
+  border: none;
+  box-shadow: rgba(0, 0, 0, 0.24) 0px 3px 8px;
+  background-color: #eff7ff;
+  border: 1px solid #d4d4d4;
+
+}
+
+section.loginPage ::placeholder {
+  color: #deeeff !important;
+}
+
+section.loginPage a.forgot {
+  color: #397fcd;
+  font-size: 24px;
+  text-decoration: none;
+  text-transform: capitalize;
+  font-weight: 500;
+}
+section.loginPage a.forgot:hover {
+  color: #1e6dc6;
+  transition: 0.4s;
+}
+
+section.loginPage button.loginBtn:hover {
+  background: transparent;
+  color:  #1E6DC6;
+  transition: 0.4s;
+}
+
+section.loginPage button.authmanagebtn {
+  border: none;
+  background: transparent;
+  display: flex;
+  justify-content: end;
+  width: 100%;
+  display: flex;
+  width: auto;
+  margin-left: auto;
+  color: #397fcd;
+}
+
+
+section.loginPage .password-toggle {
+  position: relative;
+}
+
+section.loginPage .password-toggle input[type="password"] {
+  padding-right: 30px;
+}
+
+section.loginPage .password-toggle .fa-eye,
+.fa-eye-slash {
+  position: absolute;
+  top: 62px;
+  right: 10px;
+  transform: translateY(-50%);
+  cursor: pointer;
+  color: #666;
+  font-size: 20px !important;
+}
+
+section.loginPage ::placeholder {
+  color: rgba(0, 0, 0, 0.5) !important;
+}
+
+/* MODAl */
+
+section.loginPage .modal-content {
+  height: 450px;
+  background-color: #deeeff;
+}
+
+section.loginPage .modal-header {
+  border: 0;
+  padding-bottom: 0;
+  padding-top: 80px;
+  text-align: center;
+  display: block;
+}
+
+section.loginPage .modal-header .form-label {
+  font-size: 18px;
+  color: #181818;
+}
+
+section.loginPage .modal-header .H2Heading {
+  font-size: 32px;
+  font-weight: 500;
+  margin-bottom: 25px;
+}
+
+section.loginPage .btn-close {
+  box-shadow: none;
+  border: 0;
+  outline: 0;
+  opacity: 1;
+  --bs-btn-close-bg: url(unset);
+  position: absolute;
+  left: 10px;
+  top: 20px;
+}
+
+section.loginPage .btn-close i {
+  font-size: 50px;
+  color: #397fcd;
+}
+
+/*-=========================== LOGIN PAGE EXIT ======-=-============= */
+
+/* ====================== DASHOARD PAGE START ========================= */
+/* DASHBOARD USER CARD */
+.dashboardPage .lightCard {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin: 10px 0;
+}
+
+.dashboardPage .card-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: #666;
+}
+
+.dashboardPage .card-value {
+  font-size: 24px;
+  font-weight: bold;
+  color: #333;
+}
+
+.dashboardPage .bar-chart {
+  display: flex;
+  gap: 3px;
+  align-items: flex-end;
+}
+
+.dashboardPage .bar {
+  width: 4px;
+  background-color: #ddd;
+}
+
+.dashboardPage .bar.red {
+  background-color: #d9534f;
+}
+
+.dashboardPage .bar.orange {
+  background-color: #f0ad4e;
+}
+
+.dashboardPage .bar.blue {
+  background-color: #5bc0de;
+}
+
+.dashboardPage .bar.green {
+  background-color: #5cb85c;
+}
+
+.dashboardPage .bar.purple {
+  background-color: #d953a1;
+}
+
+/* CHART */
+.dashboardPage g.apexcharts-yaxis-title,
+.dashboardPage .apexcharts-toolbar {
+  display: none !important;
+}
+
+.dashboardBarChart {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border: none;
+  background-color: #ffffff;
+  padding: 20px;
+  border-radius: 10px;
+}
+
+/* ====================== DASHOARD PAGE EXIT ========================= */

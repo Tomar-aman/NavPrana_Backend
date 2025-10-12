@@ -1,0 +1,345 @@
+{% extends 'custom-admin/base.html' %}
+{% load static %}
+{% block content %}
+<section class="manageActivitiesPage managepadding manageallpage">
+  <div class="container-fluid">
+    <div class="row">
+      <div class="col-md-12">
+        <div class="topContent">
+          <h2 class="H2Heading">Manage Orders</h2>
+        </div>
+
+        {% if messages %}
+          {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+              {{ message }}
+              <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+          {% endfor %}
+        {% endif %}
+
+        <div class="scrollableTable">
+          <div class="tableFilter">
+            <form id="filterForm" method="get" class="row mb-3">
+              <div class="col-md-3">
+                <input type="text" name="search" class="customInput" id="searchInput" value="{{ search }}" placeholder="Search by user, plan, or ID">
+              </div>
+              <div class="col-md-2">
+                <select name="status" class="customInput" id="statusFilter">
+                  <option value="">All Status</option>
+                  <option value="pending" {% if status == 'pending' %}selected{% endif %}>Pending</option>
+                  <option value="processing" {% if status == 'processing' %}selected{% endif %}>Processing</option>
+                  <option value="completed" {% if status == 'completed' %}selected{% endif %}>Completed</option>
+                  <option value="cancelled" {% if status == 'cancelled' %}selected{% endif %}>Cancelled</option>
+                </select>
+              </div>
+              <div class="col-md-2">
+                <select name="payment_status" class="customInput" id="paymentStatusFilter">
+                  <option value="">All Payment Status</option>
+                  <option value="pending" {% if payment_status == 'pending' %}selected{% endif %}>Pending</option>
+                  <option value="paid" {% if payment_status == 'paid' %}selected{% endif %}>Paid</option>
+                  <option value="failed" {% if payment_status == 'failed' %}selected{% endif %}>Failed</option>
+                  <option value="refunded" {% if payment_status == 'refunded' %}selected{% endif %}>Refunded</option>
+                </select>
+              </div>
+              <div class="col-md-3">
+                <div class="date_picker">
+                  <input type="text" name="daterange" class="customInput" id="daterange" value="{{ date_range }}" placeholder="Select Date Range">
+                </div>
+              </div>
+              {% comment %} <div class="col-md-2">
+                <button type="button" id="exportBtn" class="customButton">
+                  <i class="fa fa-download"></i> Export Data
+                </button>
+              </div> {% endcomment %}
+            </form>
+          </div>
+          <div>
+          <table cellpadding="1" cellspacing="1">
+              <tr>
+                <th>Order ID</th>
+                <th>User</th>
+                <th>Plan</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Payment</th>
+                <th>Created At</th>
+                <th>Actions</th>
+              </tr>
+            <tbody>
+              {% if orders %}
+                {% for order in orders %}
+                  <tr>
+                    <td>#{{ order.id }}</td>
+                    <td>{{ order.user.first_name }}</td>
+                    <td>{{ order.plan.name }}</td>
+                    <td>${{ order.total_amount }}</td>
+                    <td>
+                      <span class="badge {% if order.status == 'completed' %}bg-success{% elif order.status == 'pending' %}bg-warning{% else %}bg-danger{% endif %}">
+                        {{ order.get_status_display }}
+                      </span>
+                    </td>
+                    <td>{{ order.get_payment_status_display }}</td>
+                    <td>{{ order.created_at|date:"M d, Y H:i" }}</td>
+                    <td>
+                      <button class="tableActionBtn view-order" data-bs-toggle="modal" data-bs-target="#viewOrderModal{{ order.id }}">
+                        <i class="fa fa-eye"></i>
+                      </button>
+                      {% comment %} <button class="tableActionBtn edit-order" data-order-id="{{ order.id }}" data-status="{{ order.status }}" data-payment="{{ order.payment_status }}">
+                        <i class="fa fa-edit"></i>
+                      </button> {% endcomment %}
+                    </td>
+                  </tr>
+
+                  <!-- View Modal -->
+                  <div class="modal fade customModal addDataModal" id="viewOrderModal{{ order.id }}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered modal-lg">
+                      <div class="modal-content">
+                        <div class="modal-header">
+                          <h6 class="H2Heading">Order Details - #{{ order.id }}</h6>
+                          <button type="button" class="hideClose_Modal" data-bs-dismiss="modal">
+                            <img src="{% static 'admin/images/close.png' %}" alt="Close" class="img-fluid">
+                          </button>
+                        </div>
+                        <div class="modal-body">
+                          <p><strong>User:</strong> {{ order.user.first_name }} {% if order.user.last_name %}{{ order.user.last_name }}{% endif %}</p>
+                          <p><strong>Plan:</strong> {{ order.plan.name }}</p>
+                          <p><strong>Amount:</strong> ${{ order.total_amount }}</p>
+                          <p><strong>Status:</strong> {{ order.get_status_display }}</p>
+                          <p><strong>Payment Status:</strong> {{ order.get_payment_status_display }}</p>
+                          <p><strong>Created At:</strong> {{ order.created_at }}</p>
+                        </div>
+                        <div class="modal-footer">
+                          <button type="button" class="customButton" data-bs-dismiss="modal">Close</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                {% endfor %}
+              {% else %}
+                <tr>
+                  <td colspan="8" class="text-center">No orders found.</td>
+                </tr>
+              {% endif %}
+            </tbody>
+          </table>
+
+          {% if orders.paginator.num_pages > 1 %}
+            <div class="tablePagination">
+              <nav aria-label="Page navigation">
+                <ul class="pagination">
+                  {% if orders.has_previous %}
+                    <li class="page-item">
+                      <a class="page-link" href="?page={{ orders.previous_page_number }}" aria-label="Previous">
+                        <span aria-hidden="true">&laquo;</span>
+                      </a>
+                    </li>
+                  {% endif %}
+
+                  {% comment %} {% for i in orders.paginator.page_range %}
+                    <li class="page-item {% if orders.number == i %}active{% endif %}">
+                      <a class="page-link" href="?page={{ i }}">{{ i }}</a>
+                    </li>
+                  {% endfor %} {% endcomment %}
+
+                  {# Always show page 1 #}
+                  <li class="page-item {% if orders.number == 1 %}active{% endif %}">
+                    <a class="page-link" href="?page=1">1</a>
+                  </li>
+
+                  {# Show dots if current page is far from start #}
+                  {% if orders.number > 4 %}
+                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                  {% endif %}
+
+                  {# Show pages around current page #}
+                  {% for i in orders.paginator.page_range %}
+                    {% if i > orders.number|add:'-3' and i < orders.number|add:'3' and i != 1 and i != orders.paginator.num_pages %}
+                      <li class="page-item {% if orders.number == i %}active{% endif %}">
+                        <a class="page-link" href="?page={{ i }}">{{ i }}</a>
+                      </li>
+                    {% endif %}
+                  {% endfor %}
+
+                  {# Show dots if current page is far from end #}
+                  {% if orders.number < orders.paginator.num_pages|add:'-3' %}
+                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                  {% endif %}
+
+                  {# Always show last page #}
+                  {% if orders.paginator.num_pages > 1 %}
+                    <li class="page-item {% if orders.number == orders.paginator.num_pages %}active{% endif %}">
+                      <a class="page-link" href="?page={{ orders.paginator.num_pages }}">{{ orders.paginator.num_pages }}</a>
+                    </li>
+                  {% endif %}
+
+                  {# Next button #}
+
+                  {% if orders.has_next %}
+                    <li class="page-item">
+                      <a class="page-link" href="?page={{ orders.next_page_number }}" aria-label="Next">
+                        <span aria-hidden="true">&raquo;</span>
+                      </a>
+                    </li>
+                  {% endif %}
+                </ul>
+              </nav>
+            </div>
+          {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Edit Modal (Shared) -->
+<div class="modal fade customModal addDataModal" id="editOrderModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="H2Heading">Update Order Status</h6>
+        <button type="button" class="hideClose_Modal" data-bs-dismiss="modal">
+          <img src="{% static 'admin/images/close.png' %}" alt="Close" class="img-fluid">
+        </button>
+      </div>
+      <div class="modal-body">
+        <form method="post" id="editOrderForm">
+          {% csrf_token %}
+          <div class="row row-gap-4">
+            <div class="col-md-12">
+              <label class="inputLabel">Status</label>
+              <div class="customSingleSelect">
+                <div class="select-icon">
+                  <i class="fa fa-angle-down selectIcon"></i>
+                  <select name="status" id="edit_status" class="icons_select2" required>
+                    <option value="pending">Pending</option>
+                    <option value="processing">Processing</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-12">
+              <label class="inputLabel">Payment Status</label>
+              <div class="customSingleSelect">
+                <div class="select-icon">
+                  <i class="fa fa-angle-down selectIcon"></i>
+                  <select name="payment_status" id="edit_payment_status" class="icons_select2" required>
+                    <option value="pending">Pending</option>
+                    <option value="paid">Paid</option>
+                    <option value="failed">Failed</option>
+                    <option value="refunded">Refunded</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="modalFooter">
+              <button type="button" class="customButton" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" class="customButton ms-2">Update</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extrajs %}
+<script type="text/javascript" src="https://cdn.jsdelivr.net/jquery/latest/jquery.min.js"></script>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
+<script>
+$(document).ready(function() {
+    let searchTimeout;
+
+    function submitForm() {
+        $('#filterForm').submit();
+    }
+
+    $('#searchInput').on('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(submitForm, 500);
+    });
+
+    $('#statusFilter, #paymentStatusFilter').change(function() {
+        submitForm();
+    });
+
+    $('#daterange').daterangepicker({
+        autoUpdateInput: false,
+        opens: 'left',
+        locale: {
+            cancelLabel: 'Clear',
+            format: 'YYYY-MM-DD'
+        },
+        ranges: {
+           'Today': [moment(), moment()],
+           'Yesterday': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
+           'Last 7 Days': [moment().subtract(6, 'days'), moment()],
+           'Last 30 Days': [moment().subtract(29, 'days'), moment()],
+           'This Month': [moment().startOf('month'), moment().endOf('month')],
+           'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+        }
+    });
+
+    $('#daterange').on('apply.daterangepicker', function(ev, picker) {
+        $(this).val(picker.startDate.format('YYYY-MM-DD') + ' - ' + picker.endDate.format('YYYY-MM-DD'));
+        submitForm();
+    });
+
+    $('#daterange').on('cancel.daterangepicker', function(ev, picker) {
+        $(this).val('');
+        submitForm();
+    });
+
+    $('.page-link').each(function() {
+        var href = $(this).attr('href');
+        var currentUrl = new URL(window.location.href);
+        var searchParams = new URLSearchParams(currentUrl.search);
+
+        searchParams.delete('page');
+
+        var pageMatch = href.match(/page=(\d+)/);
+        if (pageMatch) {
+            searchParams.set('page', pageMatch[1]);
+        }
+
+        $(this).attr('href', '?' + searchParams.toString());
+    });
+
+    $('#exportBtn').click(function() {
+        var searchQuery = $('#searchInput').val();
+        var status = $('#statusFilter').val();
+        var paymentStatus = $('#paymentStatusFilter').val();
+        var dateRange = $('#daterange').val();
+
+        var exportUrl = '/orders-export/?';
+        var params = new URLSearchParams();
+
+        if (searchQuery) params.append('search', searchQuery);
+        if (status) params.append('status', status);
+        if (paymentStatus) params.append('payment_status', paymentStatus);
+        if (dateRange) params.append('daterange', dateRange);
+
+        window.location.href = exportUrl + params.toString();
+    });
+
+    $('.edit-order').click(function() {
+        var orderId = $(this).data('order-id');
+        var status = $(this).data('status');
+        var payment = $(this).data('payment');
+
+        $('#edit_status').val(status).trigger('change.select2');
+        $('#edit_payment_status').val(payment).trigger('change.select2');
+        $('#editOrderForm').attr('action', `/orders/${orderId}/edit/`);
+        $('#editOrderModal').modal('show');
+    });
+});
+</script>
+{% endblock %}

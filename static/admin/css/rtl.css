@@ -1,0 +1,10 @@
+.arabic-content .form-row input,
+.arabic-content .form-row textarea {
+    direction: rtl !important;
+    text-align: right !important;
+    font-family: 'Arial', sans-serif;
+}
+
+.arabic-content .form-row label {
+    text-align: right !important;
+}

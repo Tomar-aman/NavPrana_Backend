@@ -1,0 +1,213 @@
+{% load static %}
+
+<!-- Bootstrap and jQuery -->
+<script src="{% static 'admin/js/bootstrap.bundle.min.js' %}"></script>
+<script src="{% static 'admin/js/jquery-3.6.4.min.js' %}"></script>
+
+<!-- THIS IS SINGLE SELECT TO LINK -->
+<script src="{% static 'admin/js/select2.min.js' %}"></script>
+<script src="{% static 'admin/js/custom.js' %}"></script>
+
+
+
+
+<!-- SIDEBAR AND HEADER MANAGE PADDING START -->
+<script>
+  const showMenu = (headerToggle, navbarId) => {
+    const toggleBtn = document.getElementById(headerToggle),
+      nav = document.getElementById(navbarId)
+
+    if (headerToggle && navbarId) {
+      toggleBtn.addEventListener('click', () => {
+        nav.classList.toggle('show-menu')
+        toggleBtn.classList.toggle('bx-x')
+      })
+    }
+  }
+  showMenu('header-toggle', 'navbar')
+
+
+  // ADD AND REMOVE CLASS SIDEMENU
+  $(document).on("click", ".defultclass", function() {
+    $('#header-toggle').removeClass('defultclass');
+    $('#header-toggle').addClass('ram');
+    $('.manageallpage').removeClass('managepadding');
+    $('.manageallpage').addClass('removemanagepadding');
+    $('.header__toggle').addClass('barmanage');
+  });
+
+  $(document).on("click", ".ram", function() {
+    $('#header-toggle').removeClass('ram');
+    $('#header-toggle').addClass('defultclass');
+    $('.manageallpage').removeClass('removemanagepadding');
+    $('.manageallpage').addClass('managepadding');
+    $('.header__toggle').removeClass('barmanage');
+  });
+
+  // SIDEMENU
+  $(window).resize(function() {
+    if ($(window).width() < 992) {
+      $('.responsive').removeClass('show-menu');
+    }
+
+    if ($(window).width() > 991) {
+      $('.responsive').addClass('show-menu');
+    }
+  });
+
+  $(document).ready(function() {
+    var windowWidth = $(window).width();
+    if (windowWidth < 992) {
+      $('.responsive').removeClass('show-menu');
+    }
+  });
+
+  // RESPONSIVE AND MANAGE SIDEMENU
+
+  $(document).ready(function() {
+    var windowWidth = $(window).width();
+    if (windowWidth < 992) {
+      $(document).on("click", ".newbarsres", function() {
+        $('#header-toggle').addClass('addclass');
+      });
+    }
+  });
+
+  $(document).ready(function() {
+    var windowWidth = $(window).width();
+    if (windowWidth < 992) {
+      $(document).on("click", ".newbarsres", function() {
+        $('.defultclass').addClass('removeclass');
+        $('.defultclass').removeClass('addclass');
+      });
+    }
+  });
+</script>
+<!-- SIDEBAR AND HEADER MANAGE PADDING EXIT -->
+
+
+<!-- ACTIVE SIDEMENU START -->
+<script>
+  jQuery(function($) {
+    $('#sidebar li a').on("click", function(e) {
+      var id = $(e.target).attr("href");
+      localStorage.setItem('sidebaractive', id);
+    });
+    var selectedTab = localStorage.getItem('sidebaractive');
+    if (selectedTab != null) {
+      $('#sidebar li a[href="' + selectedTab + '"]').addClass('activesidemenu');
+    }
+  });
+
+  // ACCORDION 
+  $(document).ready(function() {
+    var currentPath = location.pathname;
+    $('#accordionFlushExample .nav__link').each(function() {
+      var linkPath = $(this).attr('href');
+      if (currentPath === linkPath) {
+        $(this).addClass('active-link');
+        $(this).closest('.accordion-collapse').addClass('show');
+        $(this).closest('.accordion-item').find('.accordion-button').removeClass('collapsed');
+      }
+    });
+  });
+</script>
+<!-- ACTIVE SIDEMENU EXIT -->
+
+<!-- MORE LESS BUTTN TEXT START -->
+<script>
+  $(document).ready(function() {
+    $('.comment').each(function() {
+      var content = $(this).find('.text-content');
+      var originalText = content.text();
+      var words = originalText.split(" ");
+
+      if (words.length > 25) {
+        var truncatedText = words.slice(0, 25).join(" ") + '';
+        content.text(truncatedText);
+        $(this).find('.toggle-btn').show();
+      }
+
+      $(this).find('.toggle-btn').on('click', function() {
+        if (content.text() === truncatedText) {
+          content.text(originalText);
+          $(this).text('Less');
+        } else {
+          content.text(truncatedText);
+          $(this).text('More');
+        }
+      });
+    });
+  });
+</script>
+<!-- MORE LESS BUTTN TEXT START -->
+
+<!-- ACTIVE SIDEMENU CURRENT PAGE -->
+<script>
+  $(document).ready(function() {
+    var currentPath = location.pathname;
+    $('#sidebar .nav__link').each(function() {
+      var linkPath = $(this).attr('href');
+      if (currentPath === linkPath) {
+        $(this).closest('.li__menu').addClass('active');
+      }
+    });
+  });
+
+  $(document).ready(function() {
+    var currentPath = location.pathname;
+
+    // Highlight the accordion parent if any child link is active
+    $('#accordionFlushExample .nav__link').each(function() {
+      var linkPath = $(this).attr('href');
+      if (currentPath === linkPath) {
+        $(this).closest('.accordion-collapse').addClass('show'); // Open the accordion
+        $(this).closest('.accordion-item').find('.accordion-button').addClass('active'); // Highlight the parent button
+      }
+    });
+
+    // Rotate the icon on accordion toggle
+    $('.accordion-button').on('click', function() {
+      var $icon = $(this).find('.fa-chevron-circle-down');
+      if ($(this).attr('aria-expanded') === 'true') {
+        $icon.removeClass('rotate-icon'); // Reset rotation on collapse
+      } else {
+        $icon.addClass('rotate-icon'); // Rotate on expand
+      }
+    });
+  });
+</script>
+
+
+<!-- THIS IS SELECT TO SCRIPT START -->
+<script>
+  $('.icons_select2').each(function() {
+    var $this = $(this);
+    var parentClass = $this.closest('.select-icon');
+    $this.select2({
+      width: "100%",
+      templateSelection: iformat,
+      templateResult: iformat,
+      allowHtml: true,
+      placeholder: $this.attr('placeholder') || "Select option",
+      dropdownParent: parentClass,
+      allowClear: true,
+      multiple: false
+    });
+  });
+
+  function iformat(icon) {
+    var originalOption = icon.element;
+    var originalOptionIcon = $(originalOption).data('icon');
+    var originalOptionBadge = $(originalOption).data('badge');
+    var iconHtml = originalOptionIcon ? '<i class="fa ' + originalOptionIcon + '"></i> ' : '';
+    var badgeHtml = originalOptionBadge ? '<span class="badge">' + originalOptionBadge + '</span>' : '';
+    return $('<span>' + iconHtml + icon.text + badgeHtml + '</span>');
+  }
+</script>
+<!-- THIS IS SELECT TO SCRIPT EXIT -->
+
+
+</body>
+
+</html>

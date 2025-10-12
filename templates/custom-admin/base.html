@@ -1,0 +1,14 @@
+{% load static %}
+
+    {% include 'custom-admin/include/header.html' %}
+    {% include 'custom-admin/include/services_sidebar.html' %}
+    
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    {% include 'custom-admin/include/footer.html' %}
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.1.3/dist/js/bootstrap.min.js" integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy" crossorigin="anonymous"></script>
+    {% block extrajs %}{% endblock %}
+

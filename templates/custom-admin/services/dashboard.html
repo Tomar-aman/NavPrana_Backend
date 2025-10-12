@@ -1,0 +1,555 @@
+{% extends 'custom-admin/base.html' %}
+{% block content %}
+
+<style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f7fa;
+      padding: 20px;
+    }
+    .card {
+      background: #eff7ff;
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0px 4px 20px rgba(0,0,0,0.1);
+      {% comment %} max-width: 900px; {% endcomment %}
+      margin: auto;
+    }
+    .filters {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    .filters button, .filters input {
+      padding: 8px 14px;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      background: #fff;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .filters button:hover {
+      background: #007bff;
+      color: white;
+    }
+    canvas {
+      max-height: 400px;
+    }
+  </style>
+
+
+
+<section class="dashboardPage managepadding manageallpage">
+  <div class="container-fluid">
+    <div class="row">
+      <div class="col-md-12">
+        <div class="topContent">
+          <h2 class="H2Heading">Dashboard</h2>
+        </div>
+        {% if messages %}
+          {% for message in messages %}
+              <div class="alert alert-{% if message.tags == "error" %}danger alert-dismissible fade show{% else %}{{message.tags}} alert-dismissible fade show{% endif %}" role="alert">
+                  {{ message }}
+                  <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                      <span aria-hidden="true">&times;</span>
+                    </button>
+              </div>
+              
+          {% endfor %}
+      {% endif %}
+
+                <!-- Statistics Cards -->
+                <div class="mb-4">
+                  <div class="row">
+                    <div class="col-md-4">
+                      <div class="lightCard">
+                        <div class="">
+                          <h4 class="H5Heading counter_card_title">Total Users</h4>
+                          <div class="lightCardNumber">
+                            <h2 class="H2Heading">{{ total_users }}</h2>
+                            {% comment %} <span class="percent-change">{{ total_user_sign }}{{ total_user_percent }}%</span> {% endcomment %}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="lightCard">
+                        <div class="">
+                          <h4 class="H5Heading counter_card_title">Active Users</h4>
+                          <div class="lightCardNumber">
+                            <h2 class="H2Heading">{{ active_users }}</h2>
+                            {% comment %} <span class="percent-change">{{ active_user_sign }}{{ active_user_percent }}%</span> {% endcomment %}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="lightCard">
+                        <div class="">
+                          <h4 class="H5Heading counter_card_title">Total Revenue</h4>
+                          <div class="lightCardNumber">
+                            <h2 class="H2Heading">{{ total_revenue }}</h2>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="lightCard">
+                        <div class="">
+                          <h4 class="H5Heading counter_card_title">Total Subscription</h4>
+                          <div class="lightCardNumber">
+                            <h2 class="H2Heading">{{ total_subscriptions }}</h2>
+                            {% comment %} <span class="percent-change">{{ total_user_sign }}{{ total_user_percent }}%</span> {% endcomment %}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="lightCard">
+                        <div class="">
+                          <h4 class="H5Heading counter_card_title">Free  Users</h4>
+                          <div class="lightCardNumber">
+                            <h2 class="H2Heading">{{ free_users }}</h2>
+                            {% comment %} <span class="percent-change">{{ active_user_sign }}{{ active_user_percent }}%</span> {% endcomment %}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="lightCard">
+                        <div class="">
+                          <h4 class="H5Heading counter_card_title">Paid Users</h4>
+                          <div class="lightCardNumber">
+                            <h2 class="H2Heading">{{ paid_users }}</h2>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {% comment %} <canvas id="revenueChart"></canvas> {% endcomment %}
+                <div class="card shadow-md p-4 rounded-2xl mt-4">
+                  <div class="items-center mb-4" style="display: flex; align-items: center; justify-content: space-between;">
+                    <h2 class="text-xl font-semibold">
+                      Monthly Revenue
+                    </h2>
+                    <span class="text-blue-600 text-lg font-bold ml-2" style="font-weight: 700;">
+                      ${{ monthly_total|default:"0"|floatformat:2 }}
+                    </span>
+                  </div>
+                  <canvas id="revenueChart" height="100" width="100"></canvas>
+                </div>
+
+                
+
+                <!-- Recent Activity -->
+                {% comment %} <div class="">
+                  <div class="lightCardSubHeading">
+                    <h4 class="H4Heading">Recent Activity</h4>
+                  </div>
+                  <div class="scrollableTable">
+                    <div>
+                      <table cellpadding="1" cellspacing="1">
+                        <tr >
+                          <th>User</th>
+                          <th>Message</th>
+                          <th>Date</th>
+                        </tr>
+                        <tbody>
+                          {% for activity in recent_activity %}
+                          <tr>
+                            <td>{{ activity.user.first_name }}</td>
+                            <td>{{ activity.message }}</td>
+                            <td>{{ activity.created|date:"M d, Y H:i" }}</td>
+                          </tr>
+                          {% empty %}
+                          <tr>
+                            <td colspan="3" class="text-center">No recent activity found</td>
+                          </tr>
+                          {% endfor %}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div> {% endcomment %}
+                {% comment %} <div class="mb-4">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <div class="lightCard">
+                        <div class="">
+                          <h4 class="H5Heading counter_card_title">Active Users</h4>
+                          <div class="lightCardNumber">
+                            <h2 class="H2Heading">{{ active_users_count }}</h2>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-3">
+                      <div class="lightCard">
+                        <div class="">
+                          <h4 class="H5Heading counter_card_title">Daily Orders</h4>
+                          <div class="lightCardNumber">
+                            <h2 class="H2Heading">{{ daily_orders }}</h2>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-3">
+                      <div class="lightCard">
+                        <div class="">
+                          <h4 class="H5Heading counter_card_title">One Time Orders</h4>
+                          <div class="lightCardNumber">
+                            <h2 class="H2Heading">{{ one_time_order }}</h2>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-3">
+                      <div class="lightCard">
+                        <div class="">
+                          <h4 class="H5Heading counter_card_title">Weekly Orders</h4>
+                          <div class="lightCardNumber">
+                            <h2 class="H2Heading">{{ weekly_order }}</h2>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-3">
+                      <div class="lightCard">
+                        <div class="">
+                          <h4 class="H5Heading counter_card_title">Monthly Orders</h4>
+                          <div class="lightCardNumber">
+                            <h2 class="H2Heading">{{ monthly_order }}</h2>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-3">
+                      <div class="lightCard">
+                        <div class="">
+                          <h4 class="H5Heading counter_card_title">Most Need Mosques</h4>
+                          <div class="lightCardNumber">
+                            <h2 class="H2Heading">{{ most_need_mosques }}</h2>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div> {% endcomment %}
+
+                <!-- Mosque Distribution Chart -->
+                {% comment %} <div class="lightCard">
+                  <div class="lightCardSubHeading">
+                      <h4 class="H4Heading">Mosques by City</h4>
+                  </div>
+                  <div id="mosqueDistributionChart"></div>
+              </div> {% endcomment %}
+        <!-- Charts Section -->
+        {% comment %} <div class="row mb-4">
+            <div class="col-md-8"> {% endcomment %}
+              {% comment %} <h4 class="H4Heading">Last 30 Days Orders</h4>  {% endcomment %}
+                {% comment %} <div class="lightCard"> {% endcomment %}
+                    {% comment %} <div class="lightCardSubHeading"> {% endcomment %}
+                        {% comment %} <h4 class="H4Heading">Last 30 Days Orders</h4> {% endcomment %}
+                    {% comment %} </div> {% endcomment %}
+                    <div id="orderBarChart" class="orderbarchart"></div>
+                {% comment %} </div>
+            </div> {% endcomment %}
+            {% comment %} <div class="col-md-4">
+                <div class="lightCard">
+                    <div id="orderDistributionChart"></div>
+                </div>
+            </div> {% endcomment %}
+        {% comment %} </div> {% endcomment %}
+
+        <!-- Recent Orders -->
+        {% comment %} <div class="">
+          <div class="lightCardSubHeading" sty>
+            <h4 class="H4Heading">Recent Orders</h4>
+          </div>
+          <div class="scrollableTable">
+            <div>
+              <table cellpadding="1" cellspacing="1">
+                <tr>
+                  <th>Order ID</th>
+                  <th>User</th>
+                  <th>Mosque</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                  <th>Date</th>
+                </tr>
+                <tbody>
+                  {% for order in recent_orders %}
+                  <tr>
+                    <td>#{{ order.id }}</td>
+                    <td>{{ order.user.full_name }}</td>
+                    <td>{{ order.mosque.name_en }}</td>
+                    <td>${{ order.total_amount }}</td>
+                    <td>
+                      <span class="statusBadge {% if order.status == 'completed' %}success{% elif order.status == 'pending' %}warning{% else %}danger{% endif %}">
+                        {{ order.get_status_display }}
+                      </span>
+                    </td>
+                    <td>{{ order.created_at|date:"M d, Y" }}</td>
+                  </tr>
+                  {% empty %}
+                  <tr>
+                    <td colspan="6" class="text-center">No orders found</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div> {% endcomment %}
+
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extrajs %}
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+      // Bar Chart for Monthly Orders
+      var barOptions = {
+          series: [{
+              name: 'Orders',
+              data: {{ order_counts|safe }}
+          }],
+          chart: {
+              type: 'bar',
+              height: 350,  // Increased from 350 to 500
+              width: "100%",  // Added to make it responsive
+              stacked: true,
+            
+          },
+          plotOptions: {
+              bar: {
+                  horizontal: false,
+                  borderRadius: 4,
+                  columnWidth: '60%',
+                  distributed: true,
+                  dataLabels: {
+                      position: 'top'
+                  }
+              }
+          },
+          dataLabels: {
+              enabled: true,
+              formatter: function(val) {
+                  return val
+              },
+              offsetY: -20,
+              style: {
+                  fontSize: '12px',
+                  colors: ["#304758"]
+              }
+          },
+          legend: {
+              show: false
+          },
+          xaxis: {
+              categories: {{ order_dates|safe }},
+              type: 'datetime',
+              labels: {
+                  rotate: -45,
+                  rotateAlways: true,
+                  formatter: function(value) {
+                      return new Date(value).toLocaleDateString()
+                  },
+                  style: {
+                      fontSize: '12px'
+                  }
+              },
+              title: {
+                  text: 'Date'
+              }
+          },
+          yaxis: {
+              title: {
+                  text: 'Number of Orders'
+              },
+        
+          },
+          colors: ['#008FFB', '#00E396', '#FEB019', '#FF4560', '#775DD0', '#546E7A', '#26a69a', '#D10CE8'],
+          theme: {
+              mode: 'light',
+              palette: 'palette1',
+              monochrome: {
+                  enabled: false
+              }
+          }
+      };
+
+
+
+      // Distribution Chart (Donut)
+      var distributionOptions = {
+          series: [
+              {{ one_time_order }},
+              {{ weekly_order }},
+              {{ monthly_order }}
+          ],
+          chart: {
+              type: 'donut',
+              height: 350
+          },
+          labels: ['One Time', 'Weekly', 'Monthly'],
+          colors: ['#1e88e5', '#00c853', '#ff5252'],
+          legend: {
+              position: 'bottom'
+          },
+          responsive: [{
+              breakpoint: 480,
+              options: {
+                  chart: {
+                      width: 200
+                  },
+                  legend: {
+                      position: 'bottom'
+                  }
+              }
+          }]
+      };
+
+      var barChart = new ApexCharts(document.querySelector("#orderBarChart"), barOptions);
+    // var distributionChart = new ApexCharts(document.querySelector("#orderDistributionChart"), distributionOptions);
+      
+      barChart.render();
+    // distributionChart.render();
+  });
+</script>
+
+{% comment %} ======================================================revenue graph script start ============================================================== {% endcomment %}
+<script>
+  const ctx = document.getElementById("revenueChart").getContext("2d");
+
+  new Chart(ctx, {
+    type: "bar",  // 👈 ab bar chart hoga
+    data: {
+      labels: {{ labels|safe }},   // e.g. ["01 Sep", "02 Sep", "03 Sep", ...]
+      datasets: [{
+        label: "Revenue",
+        data: {{ data|safe }},     // e.g. [120, 300, 150, ...]
+        backgroundColor: "#2563eb", // simple blue bars
+        borderRadius: 4            // thoda rounded bars
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false }, // legend off
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              return "$" + context.raw.toFixed(2);
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false }  // clean look
+        },
+        y: {
+          ticks: {
+            callback: function(value) {
+              return "$" + value;
+            }
+          }
+        }
+      }
+    }
+  });
+</script>
+
+
+
+
+{% comment %} ======================================================revenue graph script End ============================================================== {% endcomment %}
+
+
+
+
+
+
+
+
+{% comment %} <script>
+  const ctx = document.getElementById('revenueChart').getContext('2d');
+  const revenueChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+          labels: {{ revenue_labels|safe }},
+          datasets: [{
+              label: 'Monthly Revenue (USD)',
+              data: {{ revenue_data|safe }},
+              borderColor: 'rgba(75, 192, 192, 1)',
+              backgroundColor: 'rgba(75, 192, 192, 0.2)',
+              fill: true,
+              tension: 0.3
+          }]
+      },
+      options: {
+          responsive: true,
+          scales: {
+              y: {
+                  beginAtZero: true
+              }
+          }
+      }
+  });
+</script> {% endcomment %}
+{% endblock %}
+{% comment %} <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var options = {
+            series: [{
+                name: 'Mosques',
+                data: {{ mosque_counts|safe }}
+            }],
+            chart: {
+                type: 'bar',
+                height: 350,
+                toolbar: {
+                    show: false
+                }
+            },
+            plotOptions: {
+                bar: {
+                    horizontal: true,
+                    borderRadius: 4
+                }
+            },
+            dataLabels: {
+                enabled: true
+            },
+            xaxis: {
+                categories: {{ city_names|safe }},
+                title: {
+                    text: 'Number of Mosques'
+                }
+            },
+            yaxis: {
+                title: {
+                    text: 'Cities'
+                }
+            },
+            colors: ['#1e88e5'],
+            theme: {
+                mode: 'light'
+            }
+        };
+
+        var chart = new ApexCharts(document.querySelector("#mosqueDistributionChart"), options);
+        chart.render();
+    });
+</script> {% endcomment %}

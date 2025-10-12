@@ -1,0 +1,46 @@
+from django.urls import path
+from . import views
+
+app_name = 'admin_panel'
+
+urlpatterns = [
+    # path('', views.CustomAdminLoginView.as_view(), name='login'),
+    # path('reset-password/<str:uidb64>/<str:token>/', views.ResetPasswordView.as_view(), name='reset_password'),
+    # path('forgot-password/', views.ForgotPasswordView.as_view(), name='forgot_password'),
+    # path('dashboard/', views.CustomAdminDashboardView.as_view(), name='dashboard'),
+    # path('logout/', views.CustomAdminLogoutView.as_view(), name='logout'),
+    # path('users/', views.UserListView.as_view(), name='manage_users'),
+    # path('users/<int:user_id>/toggle/', views.UserToggleStatusView.as_view(), name='user_toggle'),
+    # path('users/<int:user_id>/delete/', views.UserDeleteView.as_view(), name='user_delete'),
+    # path('users/edit/', views.UserEditView.as_view(), name='user_edit'),
+    # path('profile/', views.AdminProfileView.as_view(), name='profile'),
+    # path('change-password/', views.ChangePasswordView.as_view(), name='change_password'),
+    # path('update-smtp/', views.UpdateSMTPSettingsView.as_view(), name='update_smtp'),
+    # path('users/<int:user_id>/reset-password/', views.UserResetPasswordView.as_view(), name='reset_user_password'),
+    # path('content/', views.WebContentView.as_view(), name='manage_content'),
+    # path('content/<int:content_id>/edit/', views.WebContentEditView.as_view(), name='content_edit'),
+    # path('content/add/', views.WebContentCreateView.as_view(), name='content_add'),
+    # path('content/<int:content_id>/delete/', views.WebContentDeleteView.as_view(), name='content_delete'),
+    # path('api-settings/', views.APISettingsListView.as_view(), name='manage_api_settings'),
+    # path('stripe-settings/<int:settings_id>/edit/', views.StripeSettingsEditView.as_view(), name='edit_stripe_settings'),
+    # path('chatgpt-settings/<int:chatgpt_id>/edit/',views.ChatGptAPISettingsEditView.as_view(), name="edit_chatgpt_settings"),
+    # path('coupons/', views.CouponListView.as_view(), name='manage_coupons'),
+    # path('coupons/create/', views.CouponCreateView.as_view(), name='coupon_create'),
+    # path('coupons/<int:coupon_id>/edit/', views.CouponEditView.as_view(), name='coupon_edit'),
+    # path('coupons/<int:coupon_id>/delete/', views.CouponDeleteView.as_view(), name='coupon_delete'),
+    # path('coupons/<int:coupon_id>/toggle/', views.CouponToggleStatusView.as_view(), name='coupon_toggle'),
+    # path('plans/', views.SubscriptionPlanListView.as_view(), name='manage_plans'),
+    # path('plans/create/', views.SubscriptionPlanCreateView.as_view(), name='plan_create'),
+    # path('plans/<int:plan_id>/edit/', views.SubscriptionPlanEditView.as_view(), name='plan_edit'),
+    # path('plans/<int:plan_id>/delete/', views.SubscriptionPlanDeleteView.as_view(), name='plan_delete'),
+    # path('user-subscription/',views.UserSubsciptionView.as_view(), name="user_subscription"),
+    # path('user-subscriptions/<int:subscription_id>/edit/', views.SubscriptionEditView.as_view(), name='user_subscription_edit'),
+    # path('orders/', views.OrderListView.as_view(), name='manage_orders'),
+    # path('orders/<int:order_id>/edit/', views.OrderEditView.as_view(), name='order_edit'),
+    # path('orders-export/', views.OrderExportView.as_view(), name='order_export'),
+    # path('social-links/', views.SocialLinksView.as_view(), name='manage_social_links'),
+    # path('social-links/add/', views.SocialLinksCreateView.as_view(), name='social_links_add'),
+    # path('social-links/<int:link_id>/edit/', views.SocialLinksEditView.as_view(), name='social_links_edit'),
+    # path('social-links/<int:link_id>/delete/', views.SocialLinksDeleteView.as_view(), name='social_links_delete'),
+
+]

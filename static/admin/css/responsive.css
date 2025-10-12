@@ -1,0 +1,177 @@
+  @media screen and (max-width:1200px) and (min-width:900px) {
+    .loginCard {
+      height: 530px !important;
+    }
+
+    /* .managepadding {
+      padding-left: 21% !important;
+    } */
+
+  }
+
+  @media screen and (max-width:1600px) and (min-width:1400px) {
+    .loginCard {
+      height: 530px !important;
+    }
+
+    /* .managepadding {
+      padding-left: 15% !important;
+    } */
+
+  }
+
+  @media screen and (max-width:1900px) and (min-width:1600px) {
+    .loginCard {
+      height: 530px !important;
+    }
+
+    /* .managepadding {
+      padding-left: 13.5% !important;
+    } */
+
+  }
+
+  @media screen and (max-width:2100px) and (min-width:1900px) {
+    .loginCard {
+      height: 530px !important;
+    }
+
+    /* .managepadding {
+      padding-left: 12% !important;
+    } */
+
+  }
+
+
+
+  @media (max-width: 600px) {
+
+    section.loginPage {
+      height: unset;
+    }
+
+    /* ================ TOP CONTENT START ALL PAGE START ================== */
+    .selectFilter {
+      display: block !important;
+    }
+
+    .topContent .topSearchInput {
+      margin-top: 30px;
+    }
+
+    .withoutDateInput {
+      margin-left: 40px !important;
+    }
+
+    .searchIcon {
+      left: 0 !important;
+    }
+
+    .topContent .topIconRight {
+      position: absolute !important;
+      top: 155px;
+    }
+
+    /* ================ TOP CONTENT START ALL PAGE EXIT ================== */
+
+    /* ===================== SIDEBAR MENU START ====================== */
+    .header__toggle {
+      padding-left: 0%;
+    }
+
+    .dropdownMain .contentDropdown {
+      margin-right: 10px !important;
+    }
+
+    .dropdownMain .H6Heading {
+      font-size: 18px;
+    }
+
+    .dropdownMain .contentDropdown img {
+      width: 40px !important;
+    }
+
+    .userImg {
+      margin-right: 5px;
+      width: 45px;
+      height: 45px;
+    }
+
+    .contentDropdown .H6Heading {
+      margin: 0 5px;
+    }
+
+    .show-menu {
+      width: 100%;
+    }
+
+    .managepadding {
+      padding-left: 0 !important;
+      padding-right: 0 !important;
+    }
+
+    .header {
+      padding: 3px 1rem 3px 1rem;
+    }
+
+    /* ====================== SIDEBAR MENU EXIT ========================== */
+
+
+    /* =========================== TABLE START ======================== */
+    .mainTable_WithFooter .tableFooter .tablePagination .page-link,
+    .mainTable_WithFooter .tableFooter .tablePagination .page-link:focus {
+      height: 45px;
+      align-items: center;
+      background: #FFE5E5;
+      border: none;
+      color: #646464;
+      font-size: 16px;
+      font-weight: 500;
+      box-shadow: none;
+      min-width: 50px;
+      text-align: center;
+      display: flex;
+      justify-content: center;
+      padding: 0px 6px;
+    }
+
+    .mainTable_WithFooter .tableFooter .tablePagination {
+      float: none;
+    }
+
+    .mainTable_WithFooter .tableFooter {
+      padding-top: 15px;
+    }
+
+    .mainTable_WithFooter .tableFooter .rowPage span {
+      font-size: 16px;
+      margin-left: 15px;
+    }
+
+    .mainTable_WithFooter .tableFooter .tablePagination .page-item {
+      margin: 0 5px 0 0;
+    }
+
+    /* ====================== TABLE EXIT ============================ */
+
+
+
+
+
+    /* ======================= ALL PAGE CSS START ======================== */
+    .H2Heading {
+      font-size: 28px !important;
+    }
+
+    .dashboardPage .announcementImg img {
+      width: 200px;
+    }
+
+    .announcementImg .H4Heading {
+      font-size: 30px;
+    }
+
+    /* ================== ALL PAGE CSS EXIT ===================== */
+
+
+  }

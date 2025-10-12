@@ -1,0 +1,126 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Manrope:wght@200..800&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Noto+Sans+JP:wght@100..900&family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap");
+
+* {
+  margin: 0;
+  padding: 0;
+  font-family: "Montserrat", serif;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  background: #f1f1f1;
+  font-family: "Montserrat", serif;
+}
+
+a,
+a:hover {
+  text-decoration: none !important;
+}
+.UserNameLetter:hover{
+  border: 1px solid #1e6dc6;
+  color: #1e6dc6;
+  transition: 0.3s;
+  background: #deeeff;
+}
+
+
+.managepadding {
+  padding-top: 100px !important;
+  padding-left: 16% !important;
+  padding-right: 10px !important;
+  padding-bottom: 20px !important;
+  overflow-y: scroll;
+  height: 100vh;
+  width: 100%;
+  scrollbar-width: none;
+}
+
+.removemanagepadding {
+  padding-top: 100px !important;
+  padding-left: 0% !important;
+  padding-right: 10px !important;
+  padding-bottom: 20px !important;
+  overflow-y: scroll;
+  height: 100vh;
+  width: 100%;
+}
+
+.manageallpage {
+  background: #deeeff;
+}
+
+/* MANAGE PADDING IN SIDEBAR */
+
+.order-summary {
+  background-color: #deeeff;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: rgba(0, 0, 0, 0.35) 0px 5px 15px;
+  border: 1px solid #4d4d4d;
+  color: #ffffff;
+}
+
+.summary-details {
+  border-top: 1px solid #dee2e6;
+  padding-top: 15px;
+}
+
+.summary-item {
+  padding: 8px 0;
+}
+
+.total-amount {
+  border-top: 2px solid #dee2e6;
+  margin-top: 10px;
+  padding-top: 15px;
+  font-size: 1.1em;
+}
+.counter_card_title {
+  color: #1e6dc6 !important;
+}
+.default-profile {
+  width: 100%;
+  height: 100%;
+  background-color: #eb8c33;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48px;
+  color: #f0f0f0;
+  border-radius: 50%;
+}
+.current_img {
+  width: 150px;
+  height: 150px;
+  object-fit: cover;
+  margin-right: 15px;
+  border-radius: 8px;
+}
+.img_upload_section .upload-box {
+  width: 150px;
+  height: 150px !important;
+  object-fit: cover;
+}
+.img_upload_section {
+  display: flex;
+}
+
+.input-image {
+  opacity: 0;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 150px;
+  height: 150px !important;
+}
+.orderbarchart {
+  width: 100%;
+}
+
+.dashboardLogo{
+  height: 100px;
+  margin-left: 25px;
+  margin-bottom: -25px;
+}
