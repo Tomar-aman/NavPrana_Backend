@@ -44,6 +44,8 @@ runserver.default_port = PORT
 ADDRESS = config("DJANGO_ADDRESS")
 runserver.default_addr = ADDRESS
 
+SITE_URL = config("SITE_URL", default="http://127.0.0.1:1921")
+
 
 # Application definition
 

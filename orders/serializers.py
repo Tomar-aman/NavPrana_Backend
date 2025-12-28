@@ -26,8 +26,6 @@ class CreateOrderSerializer(serializers.Serializer):
         max_digits=5, 
         decimal_places=2, 
         required=False,
-        min_value=0,
-        max_value=100
     )
     notes = serializers.CharField(required=False, allow_blank=True)
     
@@ -119,5 +117,4 @@ class RefundSerializer(serializers.Serializer):
         max_digits=10, 
         decimal_places=2, 
         required=False,
-        min_value=0.01
     )
