@@ -1,5 +1,28 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from config.models import BaseModel
+
+class Category(BaseModel):
+    name = models.CharField(
+        _('category name'),
+        max_length=100,
+        unique=True,
+        help_text=_('Enter the category name'),
+        db_index=True
+    )
+    description = models.TextField(
+        _('description'),
+        blank=True,
+        help_text=_('Enter the category description')
+    )
+
+    class Meta:
+        verbose_name = _('category')
+        verbose_name_plural = _('categories')
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
 
 class Product(models.Model):
     name = models.CharField(
@@ -10,6 +33,14 @@ class Product(models.Model):
         null=True,
         blank=True
 
+    )
+    category = models.ForeignKey(
+        Category,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='products',
+        verbose_name=_('category'),
+        help_text=_('Select the category for this product')
     )
     details = models.CharField(
         _('product details'),

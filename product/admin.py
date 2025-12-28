@@ -1,5 +1,16 @@
 from django.contrib import admin
-from .models import Product, ProductImage
+from .models import Product, ProductImage, Category
+
+@admin.register(Category)
+class CategoryAdmin(admin.ModelAdmin):
+    list_display = ('name', 'created_at', 'updated_at')
+    search_fields = ('name',)
+    ordering = ('name',)
+    readonly_fields = ('created_at', 'updated_at')
+    fieldsets = (
+        (None, {'fields': ('name', 'description')}),
+        ('Timestamps', {'fields': ('created_at', 'updated_at')}),
+    )
 
 class ProductImageInline(admin.TabularInline):
     model = ProductImage
@@ -8,13 +19,13 @@ class ProductImageInline(admin.TabularInline):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ('name', 'price', 'max_quantity', 'available_quantity', 'created_at', 'updated_at')
+    list_display = ('name', 'category', 'price', 'max_quantity', 'available_quantity', 'created_at', 'updated_at')
     list_filter = ('available_quantity', 'created_at', 'updated_at')
     search_fields = ('name', 'description')
     ordering = ('-created_at',)
     readonly_fields = ('created_at', 'updated_at')
     fieldsets = (
-        (None, {'fields': ('name', 'description', 'price', 'max_quantity', 'available_quantity')}),
+        (None, {'fields': ('name', 'category', 'description', 'price', 'max_quantity', 'available_quantity')}),
         ('Timestamps', {'fields': ('created_at', 'updated_at')}),
     )
     inlines = [ProductImageInline]
