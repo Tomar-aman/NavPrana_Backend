@@ -192,46 +192,74 @@ class CashfreePaymentService:
                 'error': error_msg
             }
     
-    def verify_webhook_signature(
-        self,
-        webhook_body: str,
-        signature: str,
-        timestamp: str
-    ) -> bool:
-        """
-        Verify Cashfree webhook signature
+    # def verify_webhook_signature(
+    #     self,
+    #     webhook_body: str,
+    #     signature: str,
+    #     timestamp: str
+    # ) -> bool:
+    #     """
+    #     Verify Cashfree webhook signature
         
-        Args:
-            webhook_body: Raw webhook body as string
-            signature: Signature from x-webhook-signature header
-            timestamp: Timestamp from x-webhook-timestamp header
+    #     Args:
+    #         webhook_body: Raw webhook body as string
+    #         signature: Signature from x-webhook-signature header
+    #         timestamp: Timestamp from x-webhook-timestamp header
             
-        Returns:
-            bool: True if signature is valid
+    #     Returns:
+    #         bool: True if signature is valid
+    #     """
+    #     try:
+    #         # Create signature string: timestamp + raw_body
+    #         signature_string = f"{timestamp}{webhook_body}"
+            
+    #         # Generate expected signature using HMAC SHA256
+    #         expected_signature = hmac.new(
+    #             self.secret_key.encode('utf-8'),
+    #             signature_string.encode('utf-8'),
+    #             hashlib.sha256
+    #         ).hexdigest()
+            
+    #         # Compare signatures
+    #         is_valid = hmac.compare_digest(expected_signature, signature)
+            
+    #         if is_valid:
+    #             logger.info("Webhook signature verified successfully")
+    #         else:
+    #             logger.warning("Webhook signature verification failed")
+            
+    #         return is_valid
+            
+    #     except Exception as e:
+    #         logger.error(f"Webhook signature verification error: {str(e)}")
+    #         return False
+
+    def verify_webhook_signature(self, raw_body: str, signature: str, timestamp: str) -> bool:
         """
+        Verify Cashfree PG v3 webhook signature
+        """
+
         try:
-            # Create signature string: timestamp + raw_body
-            signature_string = f"{timestamp}{webhook_body}"
-            
-            # Generate expected signature using HMAC SHA256
-            expected_signature = hmac.new(
-                self.secret_key.encode('utf-8'),
-                signature_string.encode('utf-8'),
+            # IMPORTANT: timestamp + raw body (NO spaces, NO json.dumps)
+            message = f"{timestamp}{raw_body}".encode("utf-8")
+
+            secret = self.secret_key.encode("utf-8")
+
+            # Generate HMAC SHA256
+            digest = hmac.new(
+                secret,
+                message,
                 hashlib.sha256
-            ).hexdigest()
-            
-            # Compare signatures
-            is_valid = hmac.compare_digest(expected_signature, signature)
-            
-            if is_valid:
-                logger.info("Webhook signature verified successfully")
-            else:
-                logger.warning("Webhook signature verification failed")
-            
-            return is_valid
-            
+            ).digest()
+
+            # Cashfree uses BASE64, not HEX
+            expected_signature = base64.b64encode(digest).decode()
+
+            # Secure comparison
+            return hmac.compare_digest(expected_signature, signature)
+
         except Exception as e:
-            logger.error(f"Webhook signature verification error: {str(e)}")
+            logger.error(f"Signature verification error: {e}")
             return False
     
     def refund_payment(
