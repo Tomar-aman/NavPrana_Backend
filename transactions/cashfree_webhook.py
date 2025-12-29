@@ -367,7 +367,7 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-
+from rest_framework.permissions import AllowAny
 from transactions.cashfree_service import CashfreePaymentService
 from transactions.models import TransactionLog
 
@@ -381,7 +381,7 @@ class CashfreeWebhookView(APIView):
     """
 
     authentication_classes = []
-    permission_classes = []
+    permission_classes = [AllowAny]
 
     def post(self, request, *args, **kwargs):
         """
