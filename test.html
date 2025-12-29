@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Cashfree Test</title>
+    <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
+</head>
+
+<body>
+
+    <button onclick="pay()">Pay Now</button>
+
+    <script>
+        function pay() {
+            const cashfree = new Cashfree({
+                mode: "sandbox"
+            });
+
+            cashfree.checkout({
+                paymentSessionId: "session_FcOVvlNgD9jN2doB2lkaZaT3HzbPoO8Il4l3t2t7RHueVGAb9B-5QuhFvLyCgjP9Z7YJjWJVVej2hTHAzNPwIBiD64CgX87EBq-hXfz6HeMU1CVsIUbuLvxsUo6sZQpaymentpayment"
+            });
+        }
+    </script>
+
+</body>
+
+</html>

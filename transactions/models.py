@@ -7,6 +7,8 @@ from users.models import User
 class TransactionLog(models.Model):
     PAYMENT_METHODS = (
         ('phonepe', 'PhonePe'),
+        ('cashfree', 'Cashfree'),
+        ('stripe', 'Stripe'),
         ('upi', 'UPI'),
         ('card', 'Card'),
         ('netbanking', 'Net Banking'),
@@ -103,6 +105,54 @@ class TransactionLog(models.Model):
         help_text=_('PhonePe internal transaction ID')
     )
     
+    # Cashfree specific fields
+    cashfree_order_id = models.CharField(
+        _('Cashfree Order ID'),
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text=_('Cashfree internal order ID (cf_order_id)')
+    )
+    
+    payment_session_id = models.CharField(
+        _('Payment Session ID'),
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text=_('Cashfree payment session ID')
+    )
+    
+    order_token = models.TextField(
+        _('Order Token'),
+        blank=True,
+        null=True,
+        help_text=_('Cashfree order token for SDK integration')
+    )
+    
+    payment_group = models.CharField(
+        _('Payment Group'),
+        max_length=50,
+        blank=True,
+        null=True,
+        help_text=_('Payment group (credit_card, upi, net_banking, etc.)')
+    )
+    
+    bank_reference = models.CharField(
+        _('Bank Reference'),
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text=_('Bank reference number')
+    )
+    
+    auth_id = models.CharField(
+        _('Auth ID'),
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text=_('Payment gateway authorization ID')
+    )
+    
     payment_details = models.JSONField(
         _('Payment Details'),
         default=dict,
@@ -181,7 +231,7 @@ class TransactionLog(models.Model):
         return f"{self.get_payment_method_display()} - {self.merchant_transaction_id} - {self.status}"
     
     @classmethod
-    def create_transaction(cls, order, transaction_id, amount):
+    def create_transaction(cls, order, transaction_id, amount, payment_method='phonepe'):
         """
         Class method to create a transaction log
         
@@ -189,6 +239,7 @@ class TransactionLog(models.Model):
             order: Order instance
             transaction_id: Merchant transaction ID
             amount: Transaction amount
+            payment_method: Payment gateway (phonepe, cashfree, stripe)
             
         Returns:
             TransactionLog instance
@@ -196,10 +247,40 @@ class TransactionLog(models.Model):
         return cls.objects.create(
             user=order.user,
             order=order,
-            payment_method='phonepe',
+            payment_method=payment_method,
             amount=amount,
             transaction_id=transaction_id,
             merchant_transaction_id=transaction_id,
+            status='pending'
+        )
+    
+    @classmethod
+    def create_cashfree_transaction(cls, order, order_id, amount, cashfree_order_id, 
+                                   payment_session_id, order_token):
+        """
+        Create a Cashfree transaction log
+        
+        Args:
+            order: Order instance
+            order_id: Merchant order ID
+            amount: Transaction amount
+            cashfree_order_id: Cashfree's internal order ID
+            payment_session_id: Payment session ID
+            order_token: Order token for SDK
+            
+        Returns:
+            TransactionLog instance
+        """
+        return cls.objects.create(
+            user=order.user,
+            order=order,
+            payment_method='cashfree',
+            amount=amount,
+            transaction_id=order_id,
+            merchant_transaction_id=order_id,
+            cashfree_order_id=cashfree_order_id,
+            payment_session_id=payment_session_id,
+            order_token=order_token,
             status='pending'
         )
     
@@ -227,6 +308,29 @@ class TransactionLog(models.Model):
             self.bank_name = payment_instrument.get('bankId')
         
         self.payment_details = phonepe_response
+        self.save()
+        
+        # Update order
+        self.order.mark_as_paid(self.merchant_transaction_id)
+    
+    def mark_cashfree_success(self, cashfree_response):
+        """
+        Mark Cashfree transaction as successful
+        
+        Args:
+            cashfree_response: Response dict from Cashfree webhook/API
+        """
+        self.status = 'success'
+        
+        # Extract payment details
+        payment_info = cashfree_response.get('payment_info', {})
+        self.payment_method = cashfree_response.get('payment_method', 'cashfree')
+        self.payment_group = payment_info.get('payment_group')
+        self.bank_reference = payment_info.get('bank_reference')
+        self.auth_id = payment_info.get('auth_id')
+        
+        # Store complete response
+        self.payment_details = cashfree_response
         self.save()
         
         # Update order

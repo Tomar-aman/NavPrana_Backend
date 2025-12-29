@@ -8,7 +8,7 @@ urlpatterns = [
     path('cart/', include('cart.urls')),
     path('coupon/', include('coupon.urls')),
     path('order/', include('orders.urls')),
-    # path('transaction/', include('transactions.urls')),
+    path('transaction/', include('transactions.urls')),
     # path('notification/', include('notification.urls')),
     # path('web-content/', include('web_content.urls')),
 ]

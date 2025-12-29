@@ -224,6 +224,12 @@ REST_FRAMEWORK = {
 # DRF Standardized errors
 DRF_STANDARDIZED_ERRORS = {"EXCEPTION_FORMATTER_CLASS": "config.handler.CustomExceptionFormatter"}
 
+# Cashfree Settings
+CASHFREE_APP_ID = config('CASHFREE_APP_ID')
+CASHFREE_SECRET_KEY = config('CASHFREE_SECRET_KEY')
+CASHFREE_API_VERSION = config('CASHFREE_API_VERSION', default='2023-08-01')
+CASHFREE_ENVIRONMENT = config('CASHFREE_ENVIRONMENT', default='TEST')
+
 
 # Logging settings
 LOG_DIR = BASE_DIR / "logs"

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import User, UserAddress
+from .models import User, UserAddress, OTP
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
@@ -31,3 +31,15 @@ class UserAddressAdmin(admin.ModelAdmin):
         if obj:  # Editing an existing object
             return self.readonly_fields + ('user',)
         return self.readonly_fields
+
+@admin.register(OTP)
+class OTPAdmin(admin.ModelAdmin):
+    list_display = ('user', 'otp_code', 'created_at', 'expires_at')
+    list_filter = ('created_at', 'expires_at')
+    search_fields = ('user__email', 'otp_code')
+    ordering = ('-created_at',)
+    readonly_fields = ('created_at', 'expires_at')
+    fieldsets = (
+        (None, {'fields': ('user', 'otp_code')}),
+        ('Timestamps', {'fields': ('created_at', 'expires_at')}),
+    )
