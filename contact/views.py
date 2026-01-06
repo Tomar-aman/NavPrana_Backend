@@ -14,7 +14,7 @@ class SendUsQueryView(GenericAPIView):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response({"message": "Query sent successfully."}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class PhoneNumberListView(GenericAPIView):
@@ -39,4 +39,20 @@ class PhoneEmailAddressView(GenericAPIView):
             'emails': emails,
             'addresses': addresses
         })
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class FAQsListView(GenericAPIView):
+    serializer_class = FAQsSerializer
+    permission_classes = [AllowAny]
+    def get(self, request):
+        faqs = FAQs.objects.all()
+        serializer = self.serializer_class(faqs, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class SocialMediaLinkListView(GenericAPIView):
+    serializer_class = SocialMediaLinkSerializer
+    permission_classes = [AllowAny]
+    def get(self, request):
+        social_media_links = SocialMediaLink.objects.all()
+        serializer = self.serializer_class(social_media_links, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)

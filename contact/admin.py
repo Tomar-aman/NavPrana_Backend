@@ -18,7 +18,7 @@ class PhoneNumberAdmin(admin.ModelAdmin):
     list_display = ('phone_number', 'created_at')
     search_fields = ('phone_number',)
     ordering = ('-created_at',)
-    readonly_fields = ('phone_number', 'created_at', 'updated_at')
+    readonly_fields = ( 'created_at', 'updated_at')
     fieldsets = (
         (None, {'fields': ('phone_number',)}),
         ('Timestamps', {'fields': ('created_at', 'updated_at')}),
@@ -29,7 +29,7 @@ class EmailAdmin(admin.ModelAdmin):
     list_display = ('email', 'created_at')
     search_fields = ('email',)
     ordering = ('-created_at',)
-    readonly_fields = ('email', 'created_at', 'updated_at')
+    readonly_fields = ('created_at', 'updated_at')
     fieldsets = (
         (None, {'fields': ('email',)}),
         ('Timestamps', {'fields': ('created_at', 'updated_at')}),
@@ -40,7 +40,7 @@ class AddressAdmin(admin.ModelAdmin):
     list_display = ('address_line1', 'city', 'state', 'postal_code', 'country', 'created_at')
     search_fields = ('address_line1', 'city', 'state', 'postal_code', 'country')
     ordering = ('-created_at',)
-    readonly_fields = ('address_line1', 'address_line2', 'city', 'state', 'postal_code', 'country', 'created_at', 'updated_at')
+    readonly_fields = ('created_at', 'updated_at')
     fieldsets = (
         (None, {'fields': ('address_line1', 'address_line2', 'city', 'state', 'postal_code', 'country')}),
         ('Timestamps', {'fields': ('created_at', 'updated_at')}),
@@ -50,7 +50,7 @@ class AddressAdmin(admin.ModelAdmin):
 class FAQsAdmin(admin.ModelAdmin):
     list_display = ('question', 'created_at')
     ordering = ('-created_at',)
-    readonly_fields = ('question', 'answer', 'created_at', 'updated_at')
+    readonly_fields = ( 'created_at', 'updated_at')
     fieldsets = (
         (None, {'fields': ('question', 'answer')}),
         ('Timestamps', {'fields': ('created_at', 'updated_at')}),
@@ -61,7 +61,7 @@ class SocialMediaLinkAdmin(admin.ModelAdmin):
     list_display = ('platform_name', 'url', 'created_at')
     search_fields = ('platform_name',)
     ordering = ('-created_at',)
-    readonly_fields = ('platform_name', 'url', 'created_at', 'updated_at')
+    readonly_fields = ('created_at', 'updated_at')
     fieldsets = (
         (None, {'fields': ('platform_name', 'url')}),
         ('Timestamps', {'fields': ('created_at', 'updated_at')}),

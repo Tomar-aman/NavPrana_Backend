@@ -132,9 +132,17 @@ class FAQs(BaseModel):
         return self.question
 
 class SocialMediaLink(BaseModel):
+    PLATEFORM_CHOICES = [
+        ('facebook', 'Facebook'),
+        ('twitter', 'Twitter'),
+        ('instagram', 'Instagram'),
+        ('linkedin', 'LinkedIn'),
+        ('youtube', 'YouTube'),
+    ]
     platform_name = models.CharField(
         _('platform name'),
         max_length=100,
+        choices=PLATEFORM_CHOICES,
         help_text=_('Enter the name of the social media platform')
     )
     url = models.URLField(

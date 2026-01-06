@@ -9,6 +9,7 @@ urlpatterns = [
     path('coupon/', include('coupon.urls')),
     path('order/', include('orders.urls')),
     path('transaction/', include('transactions.urls')),
+    path('contact/', include('contact.urls')),
     # path('notification/', include('notification.urls')),
     # path('web-content/', include('web_content.urls')),
 ]
