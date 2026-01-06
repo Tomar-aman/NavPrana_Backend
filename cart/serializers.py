@@ -4,13 +4,13 @@ from .models import Cart
 class CartSerializer(serializers.ModelSerializer):
     class Meta:
         model = Cart
-        fields = ['id', 'products', 'quantity', 'created_at', 'updated_at']
+        fields = ['id', 'product', 'quantity', 'created_at', 'updated_at']
         read_only_fields = ['created_at', 'updated_at']
     
     def validate(self, attrs):
         user = self.context['request'].user
-        product = attrs.get('products')
-        if Cart.objects.filter(user=user, products=product).exists():
+        product = attrs.get('product')
+        if product and Cart.objects.filter(user=user, product=product).exists():
             raise serializers.ValidationError("This product is already in your cart.")
         return attrs
          

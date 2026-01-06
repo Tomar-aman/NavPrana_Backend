@@ -12,12 +12,14 @@ class Cart(models.Model):
         verbose_name=_('User'),
         help_text=_('The user to whom this cart belongs')
     )
-    products = models.ForeignKey(
+    product = models.ForeignKey(
         Product,
         on_delete=models.CASCADE,
         related_name='carts',
-        verbose_name=_('Products'),
-        help_text=_('Products in the cart')
+        verbose_name=_('Product'),
+        help_text=_('Product in the cart'),
+        null=True,
+        blank=True
     )
     quantity = models.PositiveIntegerField(
         default=0,
