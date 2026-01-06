@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from config.models import BaseModel
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 class Category(BaseModel):
     name = models.CharField(
@@ -61,6 +62,21 @@ class Product(models.Model):
         decimal_places=2,
         help_text=_('Enter the product price')
     )
+    max_price = models.DecimalField(
+        _('maximum price'),
+        max_digits=10,
+        decimal_places=2,
+        help_text=_('Enter the maximum retail price of the product'),
+        null=True,
+        blank=True
+    )
+    discount_precent = models.DecimalField(
+        _('discount percent'),
+        max_digits=5,
+        decimal_places=2,
+        default=0.00,
+        help_text=_('Enter the discount percentage for the product')
+    )
     max_quantity = models.PositiveIntegerField(
         _('maximum quantity'),
         default=25,
@@ -104,6 +120,9 @@ class Product(models.Model):
             raise ValueError(_("Available quantity cannot be negative"))
         if self.available_quantity > self.max_quantity:
             raise ValueError(_("Available quantity cannot exceed maximum quantity"))
+        if self.discount_precent < 0 or self.discount_precent > 100:
+            raise ValueError(_("Discount percent must be between 0 and 100"))
+        self.price = self.max_price - (self.max_price * self.discount_precent / 100)
         super().save(*args, **kwargs)
 
 
@@ -142,3 +161,47 @@ class ProductImage(models.Model):
 
     def __str__(self):
         return f'Image for {self.product.name}'
+
+class ProductReview(BaseModel):
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name='reviews',
+        verbose_name=_('product')
+    )
+    user = models.ForeignKey(
+        'users.User',
+        on_delete=models.CASCADE,
+        related_name='product_reviews',
+        verbose_name=_('user')
+    )
+    rating = models.PositiveIntegerField(
+        _('rating'),
+        help_text=_('Enter a rating between 1 and 5'),
+        validators=[
+            MinValueValidator(1),
+            MaxValueValidator(5)
+        ]
+    )
+    review = models.TextField(
+        _('review'),
+        blank=True,
+        help_text=_('Write your review here')
+    )
+    created_at = models.DateTimeField(
+        _('created at'),
+        auto_now_add=True
+    )
+    updated_at = models.DateTimeField(
+        _('updated at'),
+        auto_now=True
+    )
+
+    class Meta:
+        verbose_name = _('product review')
+        verbose_name_plural = _('product reviews')
+        ordering = ['-created_at']
+        unique_together = ('product', 'user')
+
+    def __str__(self):
+        return f'Review by {self.user.email} for {self.product.name}'

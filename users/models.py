@@ -139,6 +139,11 @@ class UserAddress(models.Model):
         db_index=True,
         help_text=_('Designates whether this address is the default for the user')
     )
+    is_active = models.BooleanField(
+        _('is active'),
+        default=True,
+        help_text=_('Designates whether this address is active')
+    )
     created_at = models.DateTimeField(
         _('created at'),
         auto_now_add=True,

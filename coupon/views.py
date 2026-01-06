@@ -73,8 +73,9 @@ class ApplyCouponView(GenericAPIView):
 
             return Response({
                 'coupon_id': coupon.coupon_id,
+                'coupon_code': coupon.coupon_code,
                 'discount_amount': discount,
-                'is_free_shipping':coupon.free_shipping,
+                # 'is_free_shipping':coupon.free_shipping,
                 'message': _('Coupon applied successfully')
             }, status=status.HTTP_200_OK)
 

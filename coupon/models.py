@@ -137,6 +137,7 @@ class Coupon(models.Model):
             prefix = f"CC{year_suffix}"
             count = Coupon.objects.filter(coupon_id__startswith=prefix).count()
             self.coupon_id = unique_coupon_id(count, prefix)
+            self.coupon_code = self.coupon_code.upper().strip()
         super().save(*args, **kwargs)
 
     def record_usage(self, user):

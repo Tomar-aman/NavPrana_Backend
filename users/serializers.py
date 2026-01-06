@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from users.models import User, OTP
+from users.models import User, OTP, UserAddress
 from django.utils import timezone
 import random
 from datetime import timedelta
@@ -393,3 +393,12 @@ class ChangePasswordSerializer(serializers.Serializer):
     
 class LogoutSerializer(serializers.Serializer):
     refresh = serializers.CharField(required=True)
+
+
+class UserAddressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserAddress
+        fields = [
+            'id', 'user', 'address_line1', 'address_line2', 'city', 'state', 'postal_code', 'country', 'is_default'
+        ]
+        read_only_fields = ['user']

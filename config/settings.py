@@ -69,7 +69,7 @@ INSTALLED_APPS = [
     'product',
     # 'admin_panel',
     'api_settings',
-    # 'web_content',
+    'contact',
     'coupon',
     'cart',
     'orders',

@@ -1,7 +1,8 @@
 from rest_framework.generics import GenericAPIView
 from rest_framework.response import Response
 from rest_framework import status
-from users.serializers import FacebookAuthSerializer, LogoutSerializer, SignupSerializer, OTPVerificationSerializer, ResendOTPSerializer, UserDetailsSerializer, LoginSerializer, ForgotPasswordOTPSerializer, ForgotPasswordOtpVerifySerializer, ForgotPasswordResetSerializer, GoogleAuthSerializer, ChangePasswordSerializer
+from users.models import UserAddress
+from users.serializers import FacebookAuthSerializer, LogoutSerializer, SignupSerializer, OTPVerificationSerializer, ResendOTPSerializer, UserDetailsSerializer, LoginSerializer, ForgotPasswordOTPSerializer, ForgotPasswordOtpVerifySerializer, ForgotPasswordResetSerializer, GoogleAuthSerializer, ChangePasswordSerializer, UserAddressSerializer
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError, AccessToken
 
@@ -199,3 +200,43 @@ class LogoutView(GenericAPIView):
             return Response({"error": "Refresh token required."}, status=status.HTTP_400_BAD_REQUEST)
         except TokenError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    
+class UserAddressView(GenericAPIView):
+    serializer_class = UserAddressSerializer
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        addresses = user.addresses.all()
+        serializer = self.get_serializer(addresses, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(user=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class UserAddressDetailView(GenericAPIView):
+    serializer_class = UserAddressSerializer
+
+    def patch(self, request, pk, *args, **kwargs):
+        user = request.user
+        try:
+            address = user.addresses.get(pk=pk)
+            serializer = self.get_serializer(address, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except UserAddress.DoesNotExist:
+            return Response({'error': 'Address not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    def delete(self, request, pk, *args, **kwargs):
+        user = request.user
+        try:
+            address = user.addresses.get(pk=pk)
+            address.delete()
+            return Response({"message": "Address deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+        except UserAddress.DoesNotExist:
+            return Response({'error': 'Address not found.'}, status=status.HTTP_404_NOT_FOUND)
