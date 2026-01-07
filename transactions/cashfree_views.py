@@ -77,7 +77,7 @@ class CashfreeCreateOrderAndPaymentView(APIView):
                 order = Order.create_order(
                     user=user,
                     products_data=serializer.validated_data['products'],
-                    coupon_code=serializer.validated_data.get('coupon_code'),
+                    coupon_code=serializer.validated_data.get('coupon_code').upper().strip() if serializer.validated_data.get('coupon_code') else None,
                     tax_percentage=serializer.validated_data.get('tax_percentage'),
                     notes=serializer.validated_data.get('notes')
                 )

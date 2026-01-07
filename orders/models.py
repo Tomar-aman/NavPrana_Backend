@@ -241,6 +241,23 @@ class Order(models.Model):
         self.status = 'processing'
         self.transaction_id = transaction_id
         self.save()
+        
+        # Record coupon usage if not already recorded
+        if self.coupon:
+            from coupon.models import CouponUsage
+            usage, created = CouponUsage.objects.get_or_create(
+                coupon=self.coupon,
+                user=self.user
+            )
+            # Only increment if this is the first time marking as paid
+            if not created and usage.used_count == 0:
+                self.coupon.used += 1
+                self.coupon.save()
+                self.coupon.record_usage(self.user)
+            elif created:
+                self.coupon.used += 1
+                self.coupon.save()
+                self.coupon.record_usage(self.user)
     
     def mark_as_failed(self):
         """Mark order as failed"""

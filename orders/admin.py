@@ -8,13 +8,13 @@ class OrderItemInline(admin.TabularInline):
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'status', 'total_amount', 'created_at', 'updated_at')
+    list_display = ('id', 'user', 'status', 'final_amount', 'total_amount', 'created_at', 'updated_at')
     list_filter = ('status', 'created_at', 'updated_at')
     search_fields = ('user__email', 'user__first_name', 'user__last_name', 'id')
     readonly_fields = ('created_at', 'updated_at')
     ordering = ('-created_at',)
     fieldsets = (
-        (None, {'fields': ('user', 'status', 'total_amount', 'payment_method', 'transaction_id')}),
+        (None, {'fields': ('user', 'status', 'final_amount', 'total_amount', 'discount_amount',  'coupon', 'payment_method', 'transaction_id')}),
         ('Timestamps', {'fields': ('created_at', 'updated_at')}),
     )
     inlines = [OrderItemInline]

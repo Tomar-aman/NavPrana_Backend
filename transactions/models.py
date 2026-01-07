@@ -312,6 +312,13 @@ class TransactionLog(models.Model):
         
         # Update order
         self.order.mark_as_paid(self.merchant_transaction_id)
+        
+        # Record coupon usage
+        if self.order.coupon:
+            coupon = self.order.coupon
+            coupon.used += 1
+            coupon.save()
+            coupon.record_usage(self.order.user)
     
     def mark_cashfree_success(self, cashfree_response):
         """
@@ -335,6 +342,13 @@ class TransactionLog(models.Model):
         
         # Update order
         self.order.mark_as_paid(self.merchant_transaction_id)
+        
+        # Record coupon usage
+        if self.order.coupon:
+            coupon = self.order.coupon
+            coupon.used += 1
+            coupon.save()
+            coupon.record_usage(self.order.user)
     
     def mark_as_failed(self, error_message=None):
         """Mark transaction as failed"""

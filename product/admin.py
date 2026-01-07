@@ -25,7 +25,7 @@ class ProductAdmin(admin.ModelAdmin):
     ordering = ('-created_at',)
     readonly_fields = ('created_at', 'updated_at')
     fieldsets = (
-        (None, {'fields': ('name', 'category', 'description', 'price', 'max_quantity', 'available_quantity')}),
+        (None, {'fields': ('name', 'category', 'description', 'price','max_price', 'discount_precent', 'max_quantity', 'available_quantity')}),
         ('Timestamps', {'fields': ('created_at', 'updated_at')}),
     )
     inlines = [ProductImageInline]
