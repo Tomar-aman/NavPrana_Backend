@@ -1,6 +1,77 @@
-# from rest_framework.response import Response
-# from rest_framework import status
-# from rest_framework.generics import GenericAPIView
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.generics import GenericAPIView
+from rest_framework.permissions import IsAuthenticated
+from django.db.models import Q
+from config.pagination import CustomPageNumberPagination
+from .models import Order
+from .serializers import OrderSerializer
+
+
+class MyOrderView(GenericAPIView):
+    """
+    Get user's orders with pagination and search
+    
+    GET /api/orders/
+    Query params:
+        - search: Search by order ID, product name, or status
+        - status: Filter by order status (pending, processing, completed, cancelled)
+        - page: Page number (default: 1)
+        - size: Items per page (default: 10)
+    """
+    serializer_class = OrderSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = CustomPageNumberPagination
+    
+    def get_queryset(self):
+        """Get orders for current user with search and filtering"""
+        user = self.request.user
+        queryset = Order.objects.filter(user=user).prefetch_related('items__product').order_by('-created_at')
+        
+        # Search functionality
+        search_query = self.request.query_params.get('search', None)
+        if search_query:
+            queryset = queryset.filter(
+                Q(id__icontains=search_query) |
+                Q(items__product__name__icontains=search_query) |
+                Q(status__icontains=search_query) |
+                Q(transaction_id__icontains=search_query)
+            ).distinct()
+        
+        # Filter by status
+        status_filter = self.request.query_params.get('status', None)
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+        
+        # Filter by payment status
+        payment_status_filter = self.request.query_params.get('payment_status', None)
+        if payment_status_filter:
+            queryset = queryset.filter(payment_status=payment_status_filter)
+        
+        return queryset
+    
+    def get(self, request, *args, **kwargs):
+        """Get paginated and filtered list of user's orders"""
+        try:
+            queryset = self.get_queryset()
+            
+            # Apply pagination
+            paginated_queryset = self.paginate_queryset(queryset)
+            if paginated_queryset is not None:
+                serializer = self.get_serializer(paginated_queryset, many=True)
+                return self.get_paginated_response(serializer.data)
+            
+            serializer = self.get_serializer(queryset, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
 # from rest_framework.permissions import IsAuthenticated
 # from django.db import transaction as db_transaction
 # from decimal import Decimal

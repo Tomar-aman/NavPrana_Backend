@@ -1,4 +1,5 @@
 from django.urls import path
+from .views import MyOrderView
 # from .views import (
 #     CreateOrderAndPaymentView,
 #     CheckPaymentStatusView,
@@ -10,6 +11,7 @@ from django.urls import path
 # from .webhook import PhonePeWebhookView, TestWebhookView
 
 urlpatterns = [
+    path('my-orders/', MyOrderView.as_view(), name='my_orders'),
     # Order and Payment Creation
     # path('create-order/', CreateOrderAndPaymentView.as_view(), name='create_order_payment'),
     
