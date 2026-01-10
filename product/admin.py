@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Product, ProductImage, Category, ProductReview
+from .models import Product, ProductImage, Category, ProductReview, ProductFeature
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
@@ -12,6 +12,11 @@ class CategoryAdmin(admin.ModelAdmin):
         ('Timestamps', {'fields': ('created_at', 'updated_at')}),
     )
 
+class ProductFeatureInline(admin.TabularInline):
+    model = ProductFeature
+    extra = 1
+    readonly_fields = ('created_at',)
+
 class ProductImageInline(admin.TabularInline):
     model = ProductImage
     extra = 1
@@ -19,16 +24,16 @@ class ProductImageInline(admin.TabularInline):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ('name', 'category', 'price', 'max_quantity', 'available_quantity', 'created_at', 'updated_at')
+    list_display = ('name', 'size', 'category', 'price', 'max_quantity', 'available_quantity', 'created_at', 'updated_at')
     list_filter = ('available_quantity', 'created_at', 'updated_at')
     search_fields = ('name', 'description')
     ordering = ('-created_at',)
     readonly_fields = ('created_at', 'updated_at')
     fieldsets = (
-        (None, {'fields': ('name', 'category', 'description', 'price','max_price', 'discount_precent', 'max_quantity', 'available_quantity')}),
+        (None, {'fields': ('name', 'size', 'category', 'description', 'details', 'price','max_price', 'discount_precent', 'max_quantity', 'available_quantity')}),
         ('Timestamps', {'fields': ('created_at', 'updated_at')}),
     )
-    inlines = [ProductImageInline]
+    inlines = [ProductImageInline, ProductFeatureInline]
 
 @admin.register(ProductImage)
 class ProductImageAdmin(admin.ModelAdmin):
@@ -53,4 +58,15 @@ class ProductReviewAdmin(admin.ModelAdmin):
     fieldsets = (
         (None, {'fields': ('product', 'user', 'rating', 'review')}),
         ('Timestamps', {'fields': ('created_at', 'updated_at')}),
+    )
+
+@admin.register(ProductFeature)
+class ProductFeatureAdmin(admin.ModelAdmin):
+    list_display = ('product', 'feature', 'created_at')
+    search_fields = ('product__name', 'feature')
+    readonly_fields = ('created_at',)
+    ordering = ('-created_at',)
+    fieldsets = (
+        (None, {'fields': ('product', 'feature')}),
+        ('Timestamps', {'fields': ('created_at',)}),
     )

@@ -26,6 +26,10 @@ class Category(BaseModel):
         return self.name
 
 class Product(models.Model):
+    SIZE_CHOICES = [
+        ('500g', '500 grams'),
+        ('1kg', '1 kilogram'),
+    ]
     name = models.CharField(
         _('product name'),
         max_length=255,
@@ -34,6 +38,13 @@ class Product(models.Model):
         null=True,
         blank=True
 
+    )
+    size = models.CharField(
+        _('size'),
+        max_length=50,
+        blank=True,
+        choices=SIZE_CHOICES,
+        help_text=_('Enter the product size')
     )
     category = models.ForeignKey(
         Category,
@@ -205,3 +216,24 @@ class ProductReview(BaseModel):
 
     def __str__(self):
         return f'Review by {self.user.email} for {self.product.name}'
+
+
+class ProductFeature(BaseModel):
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name='features',
+        verbose_name=_('product')
+    )
+    feature = models.CharField(
+        _('feature name'),
+        max_length=100,
+        help_text=_('Enter the feature name')
+    )
+    class Meta:
+        verbose_name = _('product feature')
+        verbose_name_plural = _('product features')
+        ordering = ['feature']
+
+    def __str__(self):
+        return f'{self.feature}'
