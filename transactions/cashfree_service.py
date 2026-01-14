@@ -102,7 +102,7 @@ class CashfreePaymentService:
             url = f"{self.base_url}/orders"
             
             # Make API request
-            logger.info(f"Creating Cashfree order: {order_id}")
+            # logger.info(f"Creating Cashfree order: {order_id}")
             response = requests.post(
                 url,
                 headers=self._get_headers(),
@@ -113,7 +113,8 @@ class CashfreePaymentService:
             response.raise_for_status()
             result = response.json()
             
-            logger.info(f"Cashfree order created successfully: {order_id}")
+            print(result,"cashfree create order response")
+            # logger.info(f"Cashfree order created successfully: {order_id}")
             
             return {
                 'success': True,

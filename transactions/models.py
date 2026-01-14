@@ -330,8 +330,8 @@ class TransactionLog(models.Model):
         self.status = 'success'
         
         # Extract payment details
-        payment_info = cashfree_response.get('payment_info', {})
-        self.payment_method = cashfree_response.get('payment_method', 'cashfree')
+        payment_info = cashfree_response.get('payment', {})
+        self.payment_method = payment_info.get('payment_group', 'cashfree')
         self.payment_group = payment_info.get('payment_group')
         self.bank_reference = payment_info.get('bank_reference')
         self.auth_id = payment_info.get('auth_id')

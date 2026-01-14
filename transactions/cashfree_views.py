@@ -74,8 +74,10 @@ class CashfreeCreateOrderAndPaymentView(APIView):
         try:
             with db_transaction.atomic():
                 # Create order with items
+                print(serializer.validated_data)
                 order = Order.create_order(
                     user=user,
+                    address= serializer.validated_data.get('address_id'),
                     products_data=serializer.validated_data['products'],
                     coupon_code=serializer.validated_data.get('coupon_code').upper().strip() if serializer.validated_data.get('coupon_code') else None,
                     tax_percentage=serializer.validated_data.get('tax_percentage'),
@@ -98,12 +100,13 @@ class CashfreeCreateOrderAndPaymentView(APIView):
                     'return_url': request.data.get('return_url', 
                         f'{request.scheme}://{request.get_host()}/payment-success'),
                     'notify_url': request.data.get('notify_url',
-                        f'{request.scheme}://{request.get_host()}/api/payments/cashfree/webhook/')
+                        f'{request.scheme}://{request.get_host()}/api/payments/cashfree/webhook/'),
+                    'payment_methods': 'cc,dc,nb,upi,app'  # Example: credit card, debit card, net banking, UPI, wallet
                 }
                 
                 # Create Cashfree order
                 payment_response = cashfree_service.create_order(
-                    order_id=f"ORDER_{order.id}_{order.created_at.timestamp()}",
+                    order_id=f"NAV_ORDER_{order.id}_{order.created_at.timestamp()}",
                     amount=order.final_amount,
                     customer_details=customer_details,
                     order_meta=order_meta,

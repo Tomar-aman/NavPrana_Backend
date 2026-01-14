@@ -23,7 +23,7 @@ class CouponAdmin(admin.ModelAdmin):
             'fields': ('start_date', 'end_date')
         }),
         ('Usage Limits', {
-            'fields': ('max_use', 'used')
+            'fields': ('max_use', 'used', 'uses_per_user')
         }),
         ('Status', {
             'fields': ('status','free_shipping')

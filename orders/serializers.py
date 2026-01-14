@@ -22,6 +22,7 @@ class CreateOrderSerializer(serializers.Serializer):
     """Serializer for creating order and initiating payment"""
     products = ProductItemSerializer(many=True)
     coupon_code = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    address_id = serializers.IntegerField(required=False)
     tax_percentage = serializers.DecimalField(
         max_digits=5, 
         decimal_places=2, 

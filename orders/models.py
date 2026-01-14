@@ -3,6 +3,7 @@ from config import settings
 from django.utils.translation import gettext_lazy as _
 from coupon.models import Coupon
 from product.models import Product
+from users.models import UserAddress
 
 class Order(models.Model):
     STATUS_CHOICES = (
@@ -25,6 +26,13 @@ class Order(models.Model):
         related_name='orders',
         verbose_name=_('user'),
         help_text=_('User who placed the order')
+    )
+    address = models.ForeignKey(
+        UserAddress,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='orders',
+        verbose_name=_('address'),
     )
  
     status = models.CharField(
@@ -83,7 +91,6 @@ class Order(models.Model):
         help_text=_('Current payment status of the order'),
         db_index=True
     )
-    
     tax_percentage = models.DecimalField(
         _('tax percentage'),
         max_digits=5,
@@ -173,7 +180,7 @@ class Order(models.Model):
         super().save(*args, **kwargs)
     
     @classmethod
-    def create_order(cls, user, products_data, coupon_code=None, tax_percentage=None, notes=None):
+    def create_order(cls, user, address, products_data, coupon_code=None, tax_percentage=None, notes=None):
         """
         Class method to create an order with items
         
@@ -212,9 +219,11 @@ class Order(models.Model):
             except Coupon.DoesNotExist:
                 raise ValueError("Invalid coupon code")
         
+        print(user.addresses.filter(id=address),"address")
         # Create order
         order = cls.objects.create(
             user=user,
+            address=user.addresses.get(id=address) if isinstance(address, int) else user.addresses.filter(is_default=True).first(),
             total_amount=total_amount,
             coupon=applied_coupon,
             tax_percentage=tax_percentage or Decimal('0.00'),
