@@ -154,9 +154,9 @@ class CashfreePaymentService:
             Dict with payment verification details
         """
         try:
+            # First, get order details
             url = f"{self.base_url}/orders/{order_id}"
             
-            logger.info(f"Verifying payment for order: {order_id}")
             response = requests.get(
                 url,
                 headers=self._get_headers(),
@@ -167,7 +167,48 @@ class CashfreePaymentService:
             result = response.json()
             
             order_status = result.get('order_status')
-            payment_data = result.get('payment_info', {})
+            
+            # Initialize payment details
+            payment_method = None
+            payment_time = None
+            bank_reference = None
+            auth_id = None
+            payment_group = None
+            
+            # If order is paid, fetch payment details from payments endpoint
+            if order_status in ['PAID', 'ACTIVE']:
+                try:
+                    payments_url = f"{self.base_url}/orders/{order_id}/payments"
+                    payments_response = requests.get(
+                        payments_url,
+                        headers=self._get_headers(),
+                        timeout=30
+                    )
+                    
+                    if payments_response.status_code == 200:
+                        payments_data = payments_response.json()
+                        # print(payments_data, "cashfree payments response")
+                        
+                        # Extract payment details from the payments endpoint
+                        if isinstance(payments_data, dict) and 'data' in payments_data:
+                            payments_list = payments_data.get('data', [])
+                            if payments_list and len(payments_list) > 0:
+                                first_payment = payments_list[0]
+                                payment_method = first_payment.get('payment_method')
+                                payment_time = first_payment.get('payment_completion_time') or first_payment.get('created_at')
+                                bank_reference = first_payment.get('bank_reference') or first_payment.get('utr')
+                                auth_id = first_payment.get('auth_id')
+                                payment_group = first_payment.get('payment_group')
+                        elif isinstance(payments_data, list) and len(payments_data) > 0:
+                            # If response is directly a list
+                            first_payment = payments_data[0]
+                            payment_method = first_payment.get('payment_method')
+                            payment_time = first_payment.get('payment_completion_time') or first_payment.get('created_at')
+                            bank_reference = first_payment.get('bank_reference') or first_payment.get('utr')
+                            auth_id = first_payment.get('auth_id')
+                            payment_group = first_payment.get('payment_group')
+                except Exception as e:
+                    logger.warning(f"Could not fetch payment details from payments endpoint: {str(e)}")
             
             return {
                 'success': True,
@@ -176,11 +217,11 @@ class CashfreePaymentService:
                 'order_status': order_status,
                 'order_amount': result.get('order_amount'),
                 'payment_status': order_status in ['PAID', 'ACTIVE'],
-                'payment_method': payment_data.get('payment_method'),
-                'payment_time': result.get('payment_completion_time'),
-                'payment_group': payment_data.get('payment_group'),
-                'bank_reference': payment_data.get('bank_reference'),
-                'auth_id': payment_data.get('auth_id'),
+                'payment_method': payment_method,
+                'payment_time': payment_time,
+                'payment_group': payment_group,
+                'bank_reference': bank_reference,
+                'auth_id': auth_id,
                 'raw_response': result
             }
             

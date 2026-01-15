@@ -429,7 +429,7 @@ class CashfreeWebhookView(APIView):
 
         webhook_type = payload.get("type")
         data = payload.get("data", {})
-        print(f"Webhook payload: {json.dumps(payload, indent=2)}")
+        # print(f"Webhook payload: {json.dumps(payload, indent=2)}")
 
         logger.info(f"Cashfree webhook received: {webhook_type}")
 

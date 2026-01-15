@@ -328,21 +328,80 @@ class TransactionLog(models.Model):
             cashfree_response: Response dict from Cashfree webhook/API
         """
         self.status = 'success'
-        
-        # Extract payment details
-        payment_info = cashfree_response.get('payment', {})
-        self.payment_method = payment_info.get('payment_group', 'cashfree')
+
+        # Cashfree webhook structure expected:
+        # {
+        #   'order': {...},
+        #   'payment': {
+        #       'payment_group': 'upi'|'debit_card'|'credit_card'|'net_banking'|'wallet',
+        #       'bank_reference': '...',
+        #       'auth_id': '...',
+        #       'payment_method': { 'card'| 'upi' | 'netbanking' | 'wallet': {...} },
+        #       ...
+        #   }
+        # }
+        payment_info = cashfree_response.get('payment', {}) or {}
+
         self.payment_group = payment_info.get('payment_group')
         self.bank_reference = payment_info.get('bank_reference')
         self.auth_id = payment_info.get('auth_id')
-        
-        # Store complete response
+
+        method_detail = payment_info.get('payment_method') or {}
+
+        # Reset instrument-specific fields
+        self.payment_instrument_type = None
+        self.upi_id = None
+        self.card_type = None
+        self.card_network = None
+        self.bank_name = None
+
+        # Derive method and instrument type from payment_group/method_detail
+        pg = (self.payment_group or '').lower() if self.payment_group else ''
+        derived_payment_method = 'cashfree'
+        derived_instrument_type = None
+
+        if 'upi' in pg or 'upi' in method_detail:
+            derived_payment_method = 'upi'
+            derived_instrument_type = 'UPI'
+            upi_obj = method_detail.get('upi') if isinstance(method_detail, dict) else None
+            if isinstance(upi_obj, dict):
+                self.upi_id = (
+                    upi_obj.get('upi_vpa')
+                    or upi_obj.get('vpa')
+                    or upi_obj.get('upi_id')
+                )
+        elif 'card' in pg or 'card' in method_detail:
+            derived_payment_method = 'card'
+            derived_instrument_type = 'CARD'
+            card_obj = method_detail.get('card') if isinstance(method_detail, dict) else None
+            if isinstance(card_obj, dict):
+                # Cashfree sends card_type like 'debit_card' / 'credit_card'
+                self.card_type = (
+                    card_obj.get('card_type')
+                    or ('debit' if 'debit' in pg else 'credit' if 'credit' in pg else None)
+                )
+                self.card_network = card_obj.get('card_network')
+                self.bank_name = card_obj.get('card_bank_name')
+        elif 'net' in pg and 'bank' in pg or 'netbanking' in method_detail:
+            derived_payment_method = 'netbanking'
+            derived_instrument_type = 'NETBANKING'
+            nb_obj = method_detail.get('netbanking') if isinstance(method_detail, dict) else None
+            if isinstance(nb_obj, dict):
+                self.bank_name = nb_obj.get('bank_name') or nb_obj.get('bank_code')
+        elif 'wallet' in pg or 'wallet' in method_detail:
+            derived_payment_method = 'cashfree'
+            derived_instrument_type = 'WALLET'
+
+        self.payment_method = derived_payment_method
+        self.payment_instrument_type = derived_instrument_type
+
+        # Store complete response for audit
         self.payment_details = cashfree_response
         self.save()
-        
+
         # Update order
         self.order.mark_as_paid(self.merchant_transaction_id)
-        
+
         # Record coupon usage
         if self.order.coupon:
             coupon = self.order.coupon

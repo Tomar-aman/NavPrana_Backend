@@ -74,7 +74,7 @@ class CashfreeCreateOrderAndPaymentView(APIView):
         try:
             with db_transaction.atomic():
                 # Create order with items
-                print(serializer.validated_data)
+                # print(serializer.validated_data)
                 order = Order.create_order(
                     user=user,
                     address= serializer.validated_data.get('address_id'),
@@ -197,16 +197,12 @@ class CashfreePaymentStatusView(APIView):
             
             # Verify payment from Cashfree
             verification_result = cashfree_service.verify_payment(order_id)
-            
+
             if not verification_result.get('success'):
                 return Response({
                     'success': False,
                     'error': 'Payment verification failed'
                 }, status=status.HTTP_400_BAD_REQUEST)
-            
-            # Update transaction if payment is successful
-            if verification_result.get('payment_status') and transaction_log.status != 'success':
-                transaction_log.mark_cashfree_success(verification_result['raw_response'])
             
             return Response({
                 'success': True,
@@ -215,6 +211,7 @@ class CashfreePaymentStatusView(APIView):
                 'order_status': verification_result.get('order_status'),
                 'payment_method': verification_result.get('payment_method'),
                 'payment_time': verification_result.get('payment_time'),
+                'bank_reference':verification_result.get('bank_reference'),
                 'amount': float(transaction_log.amount),
                 'transaction_status': transaction_log.status
             }, status=status.HTTP_200_OK)
@@ -266,10 +263,6 @@ class CashfreePaymentReturnView(APIView):
             if verification_result.get('success'):
                 payment_status = verification_result.get('payment_status')
                 order_status = verification_result.get('order_status')
-                
-                # Update transaction if successful
-                if payment_status and transaction_log.status != 'success':
-                    transaction_log.mark_cashfree_success(verification_result['raw_response'])
                 
                 # Redirect to success/failure page based on status
                 if payment_status:

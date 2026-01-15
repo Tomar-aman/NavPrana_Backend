@@ -219,7 +219,6 @@ class Order(models.Model):
             except Coupon.DoesNotExist:
                 raise ValueError("Invalid coupon code")
         
-        print(user.addresses.filter(id=address),"address")
         # Create order
         order = cls.objects.create(
             user=user,
