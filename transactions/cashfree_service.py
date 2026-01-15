@@ -113,7 +113,7 @@ class CashfreePaymentService:
             response.raise_for_status()
             result = response.json()
             
-            print(result,"cashfree create order response")
+            # print(result,"cashfree create order response")
             # logger.info(f"Cashfree order created successfully: {order_id}")
             
             return {
@@ -121,7 +121,7 @@ class CashfreePaymentService:
                 'payment_session_id': result.get('payment_session_id'),
                 'order_id': result.get('order_id'),
                 'order_status': result.get('order_status'),
-                'order_token': result.get('order_token'),  # For SDK integration
+                # 'order_token': result.get('order_token'),  # For SDK integration
                 'cf_order_id': result.get('cf_order_id'),  # Cashfree's internal order ID
             }
             

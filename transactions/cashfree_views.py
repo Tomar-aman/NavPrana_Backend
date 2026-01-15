@@ -132,17 +132,17 @@ class CashfreeCreateOrderAndPaymentView(APIView):
                 order.save()
                 
                 # Get payment URL
-                payment_url = cashfree_service.get_payment_url(
-                    payment_response['payment_session_id']
-                )
+                # payment_url = cashfree_service.get_payment_url(
+                #     payment_response['payment_session_id']
+                # )
                 
                 return Response({
                     'success': True,
                     'order_id': order.id,
                     'transaction_id': payment_response['order_id'],
                     'payment_session_id': payment_response['payment_session_id'],
-                    'payment_url': payment_url,
-                    'order_token': payment_response.get('order_token'),  # For SDK integration
+                    # 'payment_url': payment_url,
+                    # 'order_token': payment_response.get('order_token'),  # For SDK integration
                     'order_summary': {
                         'order_number': order.id,
                         'total_amount': float(order.total_amount),

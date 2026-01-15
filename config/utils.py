@@ -16,7 +16,7 @@ def send_mail(subject, email_template_name, context, to_email,**kwargs):
         host_user = mail_setting.username
         host_pass = mail_setting.password
         host_port = mail_setting.port
-        from_mail = f"NavPrana {mail_setting.from_email}"
+        from_mail = f"NavPrana<{mail_setting.from_email}>"
     else:
         host = settings.EMAIL_HOST
         host_user = settings.EMAIL_HOST_USER
