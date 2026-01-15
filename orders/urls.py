@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import MyOrderView
+from .views import MyOrderView, DownloadInvoiceView
 # from .views import (
 #     CreateOrderAndPaymentView,
 #     CheckPaymentStatusView,
@@ -12,6 +12,7 @@ from .views import MyOrderView
 
 urlpatterns = [
     path('my-orders/', MyOrderView.as_view(), name='my_orders'),
+    path('<int:order_id>/invoice/', DownloadInvoiceView.as_view(), name='download_invoice'),
     # Order and Payment Creation
     # path('create-order/', CreateOrderAndPaymentView.as_view(), name='create_order_payment'),
     

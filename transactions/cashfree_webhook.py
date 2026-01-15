@@ -474,7 +474,7 @@ class CashfreeWebhookView(APIView):
             with transaction.atomic():
                 txn = TransactionLog.objects.select_for_update().select_related(
                     "order"
-                ).get(merchant_transaction_id=order_id)
+                ).get(transaction_order_id=order_id)
 
                 # Idempotency check
                 if txn.status == "success":
@@ -536,7 +536,7 @@ class CashfreeWebhookView(APIView):
 
         try:
             txn = TransactionLog.objects.select_related("order").get(
-                merchant_transaction_id=order_id
+                transaction_order_id=order_id
             )
 
             txn.status = "cancelled"

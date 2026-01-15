@@ -188,7 +188,7 @@ class CashfreePaymentStatusView(APIView):
         try:
             # Get transaction log
             transaction_log = TransactionLog.objects.select_related('order').get(
-                merchant_transaction_id=order_id,
+                transaction_order_id=order_id,
                 user=request.user
             )
             
@@ -251,7 +251,7 @@ class CashfreePaymentReturnView(APIView):
         try:
             # Get transaction
             transaction_log = TransactionLog.objects.select_related('order').get(
-                merchant_transaction_id=order_id
+                transaction_order_id=order_id
             )
             
             # Initialize Cashfree service
@@ -311,7 +311,7 @@ class CashfreeRefundView(APIView):
         try:
             # Get transaction
             transaction_log = TransactionLog.objects.select_related('order').get(
-                merchant_transaction_id=order_id,
+                transaction_order_id=order_id,
                 user=user,
                 status='success'
             )

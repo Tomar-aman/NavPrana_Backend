@@ -77,12 +77,6 @@ class Order(models.Model):
         help_text=_('Calculated discount amount from coupon')
     )
     
-    payment_method = models.CharField(
-        _('payment method'),
-        max_length=255,
-        blank=True, 
-    )
-    
     payment_status = models.CharField(
         _('payment status'),
         max_length=20,
@@ -135,6 +129,14 @@ class Order(models.Model):
         null=True,
         unique=True,
         help_text=_('Unique identifier for the payment transaction')
+    )
+    
+    invoice = models.FileField(
+        _('invoice'),
+        upload_to='invoices/%Y/%m/',
+        blank=True,
+        null=True,
+        help_text=_('Generated invoice PDF for this order')
     )
     
     class Meta:
@@ -219,15 +221,25 @@ class Order(models.Model):
             except Coupon.DoesNotExist:
                 raise ValueError("Invalid coupon code")
         
+        # Resolve address
+        if isinstance(address, int):
+            shipping_address = user.addresses.get(id=address)
+        elif address:
+            shipping_address = address
+        else:
+            shipping_address = user.addresses.filter(is_default=True).first()
+            
+        if not shipping_address:
+            raise ValueError("No valid address found for order")
+        
         # Create order
         order = cls.objects.create(
             user=user,
-            address=user.addresses.get(id=address) if isinstance(address, int) else user.addresses.filter(is_default=True).first(),
+            address=shipping_address,
             total_amount=total_amount,
             coupon=applied_coupon,
             tax_percentage=tax_percentage or Decimal('0.00'),
             notes=notes,
-            payment_method='phonepe',
             status='pending',
             payment_status='pending'
         )
@@ -244,10 +256,23 @@ class Order(models.Model):
         return order
     
     def mark_as_paid(self, transaction_id):
-        """Mark order as paid"""
+        """Mark order as paid and generate invoice"""
         self.payment_status = 'paid'
         self.status = 'processing'
         self.transaction_id = transaction_id
+        
+        # Generate invoice PDF if not exists
+        if not self.invoice:
+            try:
+                from .invoice_utils import generate_invoice_pdf
+                pdf_file = generate_invoice_pdf(self)
+                self.invoice.save(pdf_file.name, pdf_file, save=False)
+            except Exception as e:
+                # Log error but don't fail the payment
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Invoice generation failed for order {self.id}: {str(e)}")
+        
         self.save()
         
         # Record coupon usage if not already recorded

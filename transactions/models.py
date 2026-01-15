@@ -83,26 +83,23 @@ class TransactionLog(models.Model):
         help_text=_('Transaction status')
     )
     
-    transaction_id = models.CharField(
-        _('Transaction ID'),
+    transaction_order_id = models.CharField(
+        _('Transaction Order ID'),
         max_length=255,
         unique=True,
-        help_text=_('PhonePe transaction reference')
+        null=True,  # Temporarily nullable for migration
+        blank=True,
+        db_index=True,
+        help_text=_('Our internal order/transaction reference (e.g., NAV_ORDER_16_xxx)')
     )
     
-    merchant_transaction_id = models.CharField(
-        _('Merchant Transaction ID'),
-        max_length=255,
-        unique=True,
-        help_text=_('Our internal transaction reference')
-    )
-    
-    phonepe_transaction_id = models.CharField(
-        _('PhonePe Transaction ID'),
+    gateway_payment_id = models.CharField(
+        _('Gateway Payment ID'),
         max_length=255,
         blank=True,
         null=True,
-        help_text=_('PhonePe internal transaction ID')
+        db_index=True,
+        help_text=_('Payment gateway internal payment ID (PhonePe/Cashfree transaction ID)')
     )
     
     # Cashfree specific fields
@@ -156,15 +153,8 @@ class TransactionLog(models.Model):
     payment_details = models.JSONField(
         _('Payment Details'),
         default=dict,
-        help_text=_('Additional PhonePe response details')
-    )
-    
-    response_code = models.CharField(
-        _('Response Code'),
-        max_length=50,
         blank=True,
-        null=True,
-        help_text=_('PhonePe response code')
+        help_text=_('Complete gateway response for audit trail')
     )
     
     error_message = models.TextField(
@@ -220,24 +210,25 @@ class TransactionLog(models.Model):
         verbose_name_plural = _('Transaction Logs')
         ordering = ['-created_at']
         indexes = [
-            models.Index(fields=['transaction_id']),
-            models.Index(fields=['merchant_transaction_id']),
+            models.Index(fields=['transaction_order_id']),
+            models.Index(fields=['gateway_payment_id']),
             models.Index(fields=['payment_method']),
             models.Index(fields=['status']),
             models.Index(fields=['user', 'status']),
+            models.Index(fields=['cashfree_order_id']),
         ]
 
     def __str__(self):
-        return f"{self.get_payment_method_display()} - {self.merchant_transaction_id} - {self.status}"
+        return f"{self.get_payment_method_display()} - {self.transaction_order_id} - {self.status}"
     
     @classmethod
-    def create_transaction(cls, order, transaction_id, amount, payment_method='phonepe'):
+    def create_transaction(cls, order, order_id, amount, payment_method='phonepe'):
         """
-        Class method to create a transaction log
+        Create a transaction log
         
         Args:
             order: Order instance
-            transaction_id: Merchant transaction ID
+            order_id: Our internal order/transaction ID
             amount: Transaction amount
             payment_method: Payment gateway (phonepe, cashfree, stripe)
             
@@ -249,8 +240,7 @@ class TransactionLog(models.Model):
             order=order,
             payment_method=payment_method,
             amount=amount,
-            transaction_id=transaction_id,
-            merchant_transaction_id=transaction_id,
+            transaction_order_id=order_id,
             status='pending'
         )
     
@@ -262,9 +252,9 @@ class TransactionLog(models.Model):
         
         Args:
             order: Order instance
-            order_id: Merchant order ID
+            order_id: Our internal order ID (e.g., NAV_ORDER_16_xxx)
             amount: Transaction amount
-            cashfree_order_id: Cashfree's internal order ID
+            cashfree_order_id: Cashfree's internal order ID (cf_order_id)
             payment_session_id: Payment session ID
             order_token: Order token for SDK
             
@@ -276,8 +266,7 @@ class TransactionLog(models.Model):
             order=order,
             payment_method='cashfree',
             amount=amount,
-            transaction_id=order_id,
-            merchant_transaction_id=order_id,
+            transaction_order_id=order_id,
             cashfree_order_id=cashfree_order_id,
             payment_session_id=payment_session_id,
             order_token=order_token,
@@ -286,14 +275,13 @@ class TransactionLog(models.Model):
     
     def mark_as_success(self, phonepe_response):
         """
-        Mark transaction as successful
+        Mark transaction as successful (PhonePe)
         
         Args:
             phonepe_response: Response dict from PhonePe
         """
         self.status = 'success'
-        self.phonepe_transaction_id = phonepe_response.get('transactionId')
-        self.response_code = phonepe_response.get('responseCode')
+        self.gateway_payment_id = phonepe_response.get('transactionId')
         
         # Extract payment instrument details
         payment_instrument = phonepe_response.get('paymentInstrument', {})
@@ -311,7 +299,7 @@ class TransactionLog(models.Model):
         self.save()
         
         # Update order
-        self.order.mark_as_paid(self.merchant_transaction_id)
+        self.order.mark_as_paid(self.transaction_order_id)
         
         # Record coupon usage
         if self.order.coupon:
@@ -333,6 +321,7 @@ class TransactionLog(models.Model):
         # {
         #   'order': {...},
         #   'payment': {
+        #       'cf_payment_id': '...',
         #       'payment_group': 'upi'|'debit_card'|'credit_card'|'net_banking'|'wallet',
         #       'bank_reference': '...',
         #       'auth_id': '...',
@@ -342,6 +331,7 @@ class TransactionLog(models.Model):
         # }
         payment_info = cashfree_response.get('payment', {}) or {}
 
+        self.gateway_payment_id = payment_info.get('cf_payment_id')
         self.payment_group = payment_info.get('payment_group')
         self.bank_reference = payment_info.get('bank_reference')
         self.auth_id = payment_info.get('auth_id')
@@ -400,7 +390,7 @@ class TransactionLog(models.Model):
         self.save()
 
         # Update order
-        self.order.mark_as_paid(self.merchant_transaction_id)
+        self.order.mark_as_paid(self.transaction_order_id)
 
         # Record coupon usage
         if self.order.coupon:

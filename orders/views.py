@@ -310,6 +310,62 @@ class MyOrderView(GenericAPIView):
 #             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+class DownloadInvoiceView(GenericAPIView):
+    """
+    Download invoice PDF for an order
+    
+    GET /api/orders/<order_id>/invoice/
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request, order_id, *args, **kwargs):
+        """Download invoice PDF"""
+        try:
+            # Get order for current user
+            order = Order.objects.get(id=order_id, user=request.user)
+            
+            # Check if order is paid
+            if order.payment_status != 'paid':
+                return Response({
+                    'success': False,
+                    'error': 'Invoice is only available for paid orders'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Generate invoice if not exists
+            if not order.invoice:
+                try:
+                    from .invoice_utils import generate_invoice_pdf
+                    pdf_file = generate_invoice_pdf(order)
+                    order.invoice.save(pdf_file.name, pdf_file, save=True)
+                except Exception as e:
+                    return Response({
+                        'success': False,
+                        'error': f'Failed to generate invoice: {str(e)}'
+                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+            # Return file response
+            from django.http import FileResponse
+            
+            try:
+                response = FileResponse(
+                    order.invoice.open('rb'),
+                    content_type='application/pdf'
+                )
+                response['Content-Disposition'] = f'attachment; filename="invoice_{order.id}.pdf"'
+                return response
+            except Exception as e:
+                return Response({
+                    'success': False,
+                    'error': f'Failed to download invoice: {str(e)}'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+        except Order.DoesNotExist:
+            return Response({
+                'success': False,
+                'error': 'Order not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+
 # class RecentTransactionView(GenericAPIView):
 #     """
 #     Get user's recent successful transactions
