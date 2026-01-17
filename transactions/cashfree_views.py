@@ -94,9 +94,9 @@ class CashfreeCreateOrderAndPaymentView(APIView):
                     'customer_email': user.email,
                     'customer_name': user.get_full_name() or user.first_name
                 }
-                return_url = request.data.get('return_url')
-                if not return_url or return_url != "http://localhost:3000/payment-status":
-                    return_url = f'{FRONTEND_URL}/payment-success'
+                # return_url = request.data.get('return_url')
+                # if not return_url or return_url != "http://localhost:3000/payment-status":
+                return_url = f'{FRONTEND_URL}/payment-status'
                 # Prepare order metadata
                 order_meta = {
                     'return_url': return_url,
