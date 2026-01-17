@@ -46,6 +46,8 @@ runserver.default_addr = ADDRESS
 
 SITE_URL = config("SITE_URL", default="http://127.0.0.1:1921")
 
+FRONTEND_URL = config("FRONTEND_URL", default="http://localhost:3000")
+
 
 # Application definition
 
