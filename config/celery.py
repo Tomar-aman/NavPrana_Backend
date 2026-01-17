@@ -13,7 +13,7 @@ from decouple import config
 # Set the default Django settings module for the 'celery' program.
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 
-app = Celery('navprana_backend')
+app = Celery('config')
 
 # Load configuration from Django settings with CELERY namespace
 app.config_from_object('django.conf:settings', namespace='CELERY')
