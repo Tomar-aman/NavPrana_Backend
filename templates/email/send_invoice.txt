@@ -1,0 +1,17 @@
+{% autoescape off %}
+Invoice - Order #{{ order.id }}
+
+Hello {{ user.first_name }},
+
+Please find attached your invoice for Order #{{ order.id }}.
+
+Order Number: #{{ order.id }}
+Total Amount: ₹{{ order.final_amount }}
+Date: {{ order.created_at|date:"F d, Y" }}
+
+Best regards,
+NavPrana Team
+
+---
+For any questions, please contact us at support@navprana.com
+{% endautoescape %}

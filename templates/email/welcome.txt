@@ -1,0 +1,21 @@
+{% autoescape off %}
+Welcome to NavPrana!
+
+Hello {{ user.first_name }},
+
+Welcome to NavPrana! We're excited to have you as a member of our community.
+
+Your Account Information:
+- Email: {{ user.email }}
+- Account Created: {{ user.date_joined|date:"F d, Y" }}
+
+You can now start shopping and enjoy our premium collection of natural products.
+
+Get Started: {{ frontend_url }}/products
+
+Best regards,
+NavPrana Team
+
+---
+For any questions, please contact us at support@navprana.com
+{% endautoescape %}

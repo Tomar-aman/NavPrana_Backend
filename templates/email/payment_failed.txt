@@ -1,0 +1,20 @@
+{% autoescape off %}
+Payment Failed - Order #{{ order.id }}
+
+Hello {{ user.first_name }},
+
+Unfortunately, your payment could not be processed.
+
+Order Number: #{{ order.id }}
+Error: {{ error_message }}
+
+Please try again or use a different payment method. If the issue persists, please contact our support team.
+
+You can retry your payment here: {{ frontend_url }}/orders/{{ order.id }}
+
+Best regards,
+NavPrana Team
+
+---
+For any questions, please contact us at support@navprana.com
+{% endautoescape %}

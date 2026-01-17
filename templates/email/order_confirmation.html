@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #4CAF50; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
+        .content { border: 1px solid #ddd; padding: 20px; border-radius: 0 0 5px 5px; }
+        .order-details { background-color: #f9f9f9; padding: 15px; margin: 15px 0; border-left: 4px solid #4CAF50; }
+        .item-list { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        .item-list th, .item-list td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+        .item-list th { background-color: #f0f0f0; font-weight: bold; }
+        .summary { background-color: #f9f9f9; padding: 15px; margin: 15px 0; }
+        .summary-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+        .summary-row.total { font-weight: bold; font-size: 16px; border-bottom: 2px solid #4CAF50; }
+        .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>Order Confirmation</h2>
+            <p>Order #{{ order.id }}</p>
+        </div>
+        
+        <div class="content">
+            <p>Hello {{ user.first_name }},</p>
+            
+            <p>Thank you for your order! We've received your order and will start processing it right away.</p>
+            
+            <div class="order-details">
+                <p><strong>Order Number:</strong> #{{ order.id }}</p>
+                <p><strong>Order Date:</strong> {{ order.created_at|date:"F d, Y H:i" }}</p>
+                <p><strong>Total Amount:</strong> ₹{{ order.final_amount }}</p>
+            </div>
+            
+            <h3>Items Ordered:</h3>
+            <table class="item-list">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Quantity</th>
+                        <th>Price</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td>{{ item.product.name }} ({{ item.size }})</td>
+                        <td>{{ item.quantity }}</td>
+                        <td>₹{{ item.price }}</td>
+                        <td>₹{{ item.item_total }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            <div class="summary">
+                <div class="summary-row">
+                    <span>Subtotal:</span>
+                    <span>₹{{ order.total_amount }}</span>
+                </div>
+                {% if order.discount_amount %}
+                <div class="summary-row">
+                    <span>Discount:</span>
+                    <span>-₹{{ order.discount_amount }}</span>
+                </div>
+                {% endif %}
+                <div class="summary-row">
+                    <span>Tax:</span>
+                    <span>₹{{ order.tax_amount }}</span>
+                </div>
+                <div class="summary-row total">
+                    <span>Total:</span>
+                    <span>₹{{ order.final_amount }}</span>
+                </div>
+            </div>
+            
+            <h3>Shipping Address:</h3>
+            <div class="order-details">
+                <p>
+                    {{ order.address.address_line1 }}<br>
+                    {% if order.address.address_line2 %}{{ order.address.address_line2 }}<br>{% endif %}
+                    {{ order.address.city }}, {{ order.address.state }} {{ order.address.postal_code }}<br>
+                    {{ order.address.country }}
+                </p>
+            </div>
+            
+            <p>We will send you an update when your order ships.</p>
+            
+            <p>Best regards,<br><strong>NavPrana Team</strong></p>
+        </div>
+        
+        <div class="footer">
+            <p>For any questions, please contact us at support@navprana.com</p>
+        </div>
+    </div>
+</body>
+</html>

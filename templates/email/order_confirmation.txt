@@ -1,0 +1,41 @@
+{% autoescape off %}
+Order Confirmation - Order #{{ order.id }}
+
+Hello {{ user.first_name }},
+
+Thank you for your order! We've received your order and will start processing it right away.
+
+Order Details:
+- Order Number: #{{ order.id }}
+- Order Date: {{ order.created_at|date:"F d, Y" }}
+- Total Amount: ₹{{ order.final_amount }}
+
+Items Ordered:
+{% for item in items %}
+  - {{ item.product.name }} ({{ item.size }})
+    Quantity: {{ item.quantity }}
+    Price: ₹{{ item.price }} × {{ item.quantity }} = ₹{{ item.item_total }}
+{% endfor %}
+
+Order Summary:
+- Subtotal: ₹{{ order.total_amount }}
+{% if order.discount_amount %}
+- Discount: -₹{{ order.discount_amount }}
+{% endif %}
+- Tax: ₹{{ order.tax_amount }}
+- Final Total: ₹{{ order.final_amount }}
+
+Shipping Address:
+{{ order.address.address_line1 }}
+{% if order.address.address_line2 %}{{ order.address.address_line2 }}{% endif %}
+{{ order.address.city }}, {{ order.address.state }} {{ order.address.postal_code }}
+{{ order.address.country }}
+
+We will send you an update when your order ships.
+
+Best regards,
+NavPrana Team
+
+---
+For any questions, please contact us at support@navprana.com
+{% endautoescape %}

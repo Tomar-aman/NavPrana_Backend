@@ -1,0 +1,17 @@
+{% autoescape off %}
+Order Delivered - Order #{{ order.id }}
+
+Hello {{ user.first_name }},
+
+Your order has been delivered! We hope you're happy with your purchase.
+
+Order Number: #{{ order.id }}
+
+Please leave a review and let us know about your experience.
+
+Best regards,
+NavPrana Team
+
+---
+For any questions, please contact us at support@navprana.com
+{% endautoescape %}

@@ -1,0 +1,20 @@
+{% autoescape off %}
+Payment Successful - Order #{{ order.id }}
+
+Hello {{ user.first_name }},
+
+Great news! Your payment has been processed successfully.
+
+Order Number: #{{ order.id }}
+Transaction ID: {{ transaction_id }}
+Amount Paid: ₹{{ order.final_amount }}
+Date: {{ order.updated_at|date:"F d, Y H:i" }}
+
+Your order is now being prepared for shipment. We will notify you with tracking information once it ships.
+
+Best regards,
+NavPrana Team
+
+---
+For any questions, please contact us at support@navprana.com
+{% endautoescape %}

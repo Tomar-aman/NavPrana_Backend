@@ -3,7 +3,7 @@ from users.models import User, OTP, UserAddress
 from django.utils import timezone
 import random
 from datetime import timedelta
-from config.utils import send_mail
+from users.tasks import send_otp_email
 import requests
 from django.core.files.base import ContentFile
 
@@ -64,11 +64,11 @@ class SignupSerializer(serializers.ModelSerializer):
         )
 
         # Send OTP
-        send_mail(
+        send_otp_email.delay(
             subject="Your OTP Code",
-            email_template_name="email/otp_email.html",
-            context={"user": user, "otp_code": otp_code},
-            to_email=user.email
+            template_name="email/otp_email.html",
+            user_id=user.id,
+            otp_code=otp_code,
         )
 
         return user
@@ -130,14 +130,11 @@ class ResendOTPSerializer(serializers.Serializer):
             # otp_code = ''.join(random.choices('0123456789', k=6))
             otp_code = str(random.randint(100000, 999999))
             otp = OTP.objects.create(user=user, otp_code=otp_code, expires_at=timezone.now() + timedelta(minutes=10))
-            send_mail(
+            send_otp_email.delay(
                 subject="Your New OTP Code",
-                email_template_name="email/resend_otp_email.html",
-                context={
-                    "user": user,
-                    "otp_code": otp_code
-                },
-                to_email=user.email
+                template_name="email/resend_otp_email.html",
+                user_id=user.id,
+                otp_code=otp_code,
             )
             return otp
         except User.DoesNotExist:
@@ -189,14 +186,11 @@ class ForgotPasswordOTPSerializer(serializers.Serializer):
             # otp_code = ''.join(random.choices('0123456789', k=6))
             otp_code = str(random.randint(100000, 999999))
             otp = OTP.objects.create(user=user, otp_code=otp_code, expires_at=timezone.now() + timedelta(minutes=10))
-            send_mail(
+            send_otp_email.delay(
                 subject="Reset Your Password - OTP Code",
-                email_template_name="email/forgot_password_otp.html",
-                context={
-                    "user": user,
-                    "otp_code": otp_code
-                },
-                to_email=user.email
+                template_name="email/forgot_password_otp.html",
+                user_id=user.id,
+                otp_code=otp_code,
             )
             return otp
         except User.DoesNotExist:

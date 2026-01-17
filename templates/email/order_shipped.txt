@@ -1,0 +1,20 @@
+{% autoescape off %}
+Order Shipped - Order #{{ order.id }}
+
+Hello {{ user.first_name }},
+
+Great news! Your order has been shipped!
+
+Order Number: #{{ order.id }}
+{% if tracking_number %}Tracking Number: {{ tracking_number }}{% endif %}
+
+You can track your shipment here: {{ frontend_url }}/orders/{{ order.id }}
+
+Expected Delivery: 3-5 business days
+
+Best regards,
+NavPrana Team
+
+---
+For any questions, please contact us at support@navprana.com
+{% endautoescape %}
