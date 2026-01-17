@@ -1,17 +1,18 @@
 from django.urls import path
-from .views import MyOrderView, DownloadInvoiceView
+from .views import MyOrdersView, OrderDetailView, DownloadInvoiceView
 # from .views import (
 #     CreateOrderAndPaymentView,
 #     CheckPaymentStatusView,
 #     PaymentCallbackView,
 #     RecentTransactionView,
 #     InitiateRefundView,
-#     OrderDetailsView
 # )
 # from .webhook import PhonePeWebhookView, TestWebhookView
 
 urlpatterns = [
-    path('my-orders/', MyOrderView.as_view(), name='my_orders'),
+    # Order Management
+    path('my-orders/', MyOrdersView.as_view(), name='my_orders'),
+    path('<int:order_id>/', OrderDetailView.as_view(), name='order_detail'),
     path('<int:order_id>/invoice/', DownloadInvoiceView.as_view(), name='download_invoice'),
     # Order and Payment Creation
     # path('create-order/', CreateOrderAndPaymentView.as_view(), name='create_order_payment'),

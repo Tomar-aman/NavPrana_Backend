@@ -2,31 +2,43 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import IsAuthenticated
-from django.db.models import Q
+from django.db.models import Q, Prefetch
 from config.pagination import CustomPageNumberPagination
-from .models import Order
-from .serializers import OrderSerializer
+from .models import Order, OrderItem
+from .serializers import OrderListSerializer, OrderDetailSerializer
 
 
-class MyOrderView(GenericAPIView):
+class MyOrdersView(GenericAPIView):
     """
     Get user's orders with pagination and search
     
-    GET /api/orders/
+    GET /api/orders/my-orders/
     Query params:
-        - search: Search by order ID, product name, or status
+        - search: Search by order ID, product name, or transaction ID
         - status: Filter by order status (pending, processing, completed, cancelled)
+        - payment_status: Filter by payment status (pending, paid, failed, refunded)
         - page: Page number (default: 1)
-        - size: Items per page (default: 10)
+        - page_size: Items per page (default: 10)
     """
-    serializer_class = OrderSerializer
+    serializer_class = OrderListSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = CustomPageNumberPagination
     
     def get_queryset(self):
         """Get orders for current user with search and filtering"""
         user = self.request.user
-        queryset = Order.objects.filter(user=user).prefetch_related('items__product').order_by('-created_at')
+        
+        # Optimize queries with select_related and prefetch_related
+        queryset = Order.objects.filter(user=user).select_related(
+            'address', 'coupon'
+        ).prefetch_related(
+            Prefetch(
+                'items', 
+                queryset=OrderItem.objects.select_related(
+                    'product__category'
+                ).prefetch_related('product__images')
+            )
+        ).order_by('-created_at')
         
         # Search functionality
         search_query = self.request.query_params.get('search', None)
@@ -58,15 +70,61 @@ class MyOrderView(GenericAPIView):
             # Apply pagination
             paginated_queryset = self.paginate_queryset(queryset)
             if paginated_queryset is not None:
-                serializer = self.get_serializer(paginated_queryset, many=True)
+                serializer = self.get_serializer(
+                    paginated_queryset, 
+                    many=True,
+                    context={'request': request}
+                )
                 return self.get_paginated_response(serializer.data)
             
-            serializer = self.get_serializer(queryset, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            serializer = self.get_serializer(
+                queryset, 
+                many=True,
+                context={'request': request}
+            )
+            return Response(serializer.data, status=status.HTTP_200_OK) 
         
         except Exception as e:
             return Response({
-                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class OrderDetailView(GenericAPIView):
+    """
+    Get detailed information for a specific order
+    
+    GET /api/orders/<order_id>/
+    """
+    serializer_class = OrderDetailSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request, order_id, *args, **kwargs):
+        """Get detailed order information"""
+        try:
+            # Get order with optimized queries
+            order = Order.objects.select_related(
+                'address', 'coupon', 'user'
+            ).prefetch_related(
+                Prefetch(
+                    'items', 
+                    queryset=OrderItem.objects.select_related(
+                        'product__category'
+                    ).prefetch_related('product__images')
+                ),
+                'transaction_logs'
+            ).get(id=order_id, user=request.user)
+            
+            serializer = self.get_serializer(order, context={'request': request})
+            
+            return Response(serializer.data, status=status.HTTP_200_OK)
+            
+        except Order.DoesNotExist:
+            return Response({
+                'error': 'Order not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
                 'error': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 

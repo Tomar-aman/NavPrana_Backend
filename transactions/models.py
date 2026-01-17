@@ -307,6 +307,11 @@ class TransactionLog(models.Model):
             coupon.used += 1
             coupon.save()
             coupon.record_usage(self.order.user)
+        
+        # Clear user's cart after successful payment
+        if self.user:
+            from cart.models import Cart
+            Cart.objects.filter(user=self.user).delete()
     
     def mark_cashfree_success(self, cashfree_response):
         """
@@ -398,6 +403,11 @@ class TransactionLog(models.Model):
             coupon.used += 1
             coupon.save()
             coupon.record_usage(self.order.user)
+        
+        # Clear user's cart after successful payment
+        if self.user:
+            from cart.models import Cart
+            Cart.objects.filter(user=self.user).delete()
     
     def mark_as_failed(self, error_message=None):
         """Mark transaction as failed"""
