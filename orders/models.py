@@ -266,6 +266,9 @@ class Order(models.Model):
         
         self.save()
         
+        # Generate invoice PDF
+        self.generate_invoice()
+        
         # Record coupon usage if not already recorded
         if self.coupon:
             from coupon.models import CouponUsage
@@ -303,6 +306,34 @@ class Order(models.Model):
         """Mark order as delivered"""
         self.status = 'delivered'
         self.save()
+    
+    def generate_invoice(self):
+        """Generate and save invoice PDF"""
+        try:
+            from .invoice_utils import generate_invoice_pdf
+            import logging
+            
+            logger = logging.getLogger(__name__)
+            
+            # Skip if invoice already exists
+            if self.invoice:
+                logger.info(f'Invoice already exists for order {self.id}')
+                return True
+            
+            # Generate PDF
+            pdf_file = generate_invoice_pdf(self)
+            
+            # Save to order
+            self.invoice.save(pdf_file.name, pdf_file, save=True)
+            
+            logger.info(f'Invoice generated and saved for order {self.id}')
+            return True
+            
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f'Failed to generate invoice for order {self.id}: {str(e)}', exc_info=True)
+            return False
 
 
 class OrderItem(models.Model):

@@ -1,39 +1,172 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background-color: #4CAF50; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
-        .content { border: 1px solid #ddd; padding: 20px; border-radius: 0 0 5px 5px; }
-        .info-box { background-color: #f9f9f9; padding: 15px; margin: 15px 0; border-left: 4px solid #4CAF50; }
-        .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+        :root {
+            --ink: #1f2937;
+            --muted: #6b7280;
+            --border: #e5e7eb;
+            --accent: #1b4332;
+            --accent-light: #2d6a4f;
+            --bg: #f9fafb;
+            --card: #ffffff;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background: var(--bg);
+            font-family: Arial, sans-serif;
+            color: var(--ink);
+            line-height: 1.6;
+        }
+        .wrapper { max-width: 720px; margin: 24px auto; padding: 0 16px; }
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.04);
+        }
+        .header {
+            background: linear-gradient(135deg, #1b4332 0%, #2d6a4f 100%);
+            color: #fff;
+            padding: 24px;
+        }
+        .header-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+        .brand {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+        .invoice-meta { text-align: right; font-size: 13px; line-height: 1.4; }
+        .section { padding: 20px 24px; border-top: 1px solid var(--border); }
+        .section h3 { margin: 0 0 12px; font-size: 15px; letter-spacing: 0.2px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+        .box { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; background: #fff; }
+        .muted { color: var(--muted); font-size: 13px; }
+        .strong { font-weight: 600; }
+        table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+        th, td { padding: 10px 8px; text-align: left; border-bottom: 1px solid var(--border); font-size: 13px; }
+        th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.3px; color: var(--muted); }
+        .totals { width: 100%; margin-top: 12px; }
+        .totals td { padding: 8px 0; font-size: 14px; }
+        .totals .label { color: var(--muted); }
+        .totals .value { text-align: right; font-weight: 600; }
+        .badge { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: rgba(255,255,255,0.15); color: #fff; }
+        .footer { padding: 18px 24px 22px; text-align: center; font-size: 12px; color: var(--muted); }
+        @media (max-width: 560px) { .header-top { flex-direction: column; align-items: flex-start; } .invoice-meta { text-align: left; } }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h2>📄 Invoice</h2>
-            <p>Order #{{ order.id }}</p>
-        </div>
-        
-        <div class="content">
-            <p>Hello {{ user.first_name }},</p>
-            
-            <p>Please find attached your invoice for Order #{{ order.id }}.</p>
-            
-            <div class="info-box">
-                <p><strong>Order Number:</strong> #{{ order.id }}</p>
-                <p><strong>Total Amount:</strong> ₹{{ order.final_amount }}</p>
-                <p><strong>Date:</strong> {{ order.created_at|date:"F d, Y" }}</p>
+    <div class="wrapper">
+        <div class="card">
+            <div class="header">
+                <div class="header-top">
+                    <img src="/static/logos/logo_navprana.svg" alt="NavPrana" style="height: 50px; margin-right: 16px;">
+                    {% comment %} <div>
+                        <div class="brand" style="font-size: 18px;">NavPrana</div>
+                        <div class="muted" style="color: rgba(255,255,255,0.8); font-size: 12px;">Professional Invoice</div>
+                    </div> {% endcomment %}
+                    <div class="invoice-meta">
+                        <div class="badge">Invoice</div>
+                        <div>Order #{{ order.id }}</div>
+                        <div>{{ order.created_at|date:"d M Y" }}</div>
+                    </div>
+                </div>
             </div>
-            
-            <p>Best regards,<br><strong>NavPrana Team</strong></p>
-        </div>
-        
-        <div class="footer">
-            <p>For any questions, please contact us at support@navprana.com</p>
+
+            <div class="section">
+                <div class="grid">
+                    <div class="box">
+                        <h3>Bill To</h3>
+                        <div class="strong">{{ user.first_name }} {{ user.last_name }}</div>
+                        <div class="muted">{{ user.email }}</div>
+                        {% if order.address %}
+                            <div class="muted" style="margin-top:6px;">
+                                {{ order.address.address_line1 }}{% if order.address.address_line2 %}, {{ order.address.address_line2 }}{% endif %}<br>
+                                {{ order.address.city }}, {{ order.address.state }} {{ order.address.pincode }}<br>
+                                {{ order.address.country }}
+                            </div>
+                            {% if order.address.phone %}<div class="muted">Phone: {{ order.address.phone }}</div>{% endif %}
+                        {% endif %}
+                    </div>
+                    <div class="box">
+                        <h3>Invoice Details</h3>
+                        <div class="muted">Transaction ID</div>
+                        <div class="strong">{{ order.transaction_id|default:'N/A' }}</div>
+                        <div class="muted" style="margin-top:8px;">Payment Status</div>
+                        <div class="strong">{{ order.payment_status|title }}</div>
+                        <div class="muted" style="margin-top:8px;">Order Status</div>
+                        <div class="strong">{{ order.status|title }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>Items</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width:45%;">Item</th>
+                            <th style="width:15%;">Qty</th>
+                            <th style="width:20%;">Price</th>
+                            <th style="width:20%; text-align:right;">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in order.items.all %}
+                        <tr>
+                            <td>{{ item.product.name }}</td>
+                            <td>{{ item.quantity }}</td>
+                            <td>₹{{ item.price }}</td>
+                            <td style="text-align:right;">₹{{ item.price|floatformat:2|add:"0"|floatformat:"2"|default:item.price|floatformat:"2" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <table class="totals">
+                    <tr>
+                        <td class="label">Subtotal</td>
+                        <td class="value">₹{{ order.total_amount }}</td>
+                    </tr>
+                    {% if order.discount_amount and order.discount_amount > 0 %}
+                    <tr>
+                        <td class="label">Discount{% if order.coupon %} ({{ order.coupon.coupon_code }}){% endif %}</td>
+                        <td class="value">- ₹{{ order.discount_amount }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if order.tax_amount and order.tax_amount > 0 %}
+                    <tr>
+                        <td class="label">Tax{% if order.tax_percentage %} ({{ order.tax_percentage }}%){% endif %}</td>
+                        <td class="value">₹{{ order.tax_amount }}</td>
+                    </tr>
+                    {% endif %}
+                    <tr>
+                        <td class="label strong">Total</td>
+                        <td class="value" style="font-size:16px;">₹{{ order.final_amount }}</td>
+                    </tr>
+                </table>
+            </div>
+
+            {% if order.notes %}
+            <div class="section">
+                <h3>Notes</h3>
+                <div class="muted">{{ order.notes }}</div>
+            </div>
+            {% endif %}
+
+            <div class="section" style="background: #f8fafc;">
+                <div class="muted" style="font-size:12px; line-height:1.5;">
+                    Thank you for your purchase. If you have any questions about this invoice or need support, please reach out to support@navprana.com.
+                </div>
+            </div>
+
+            <div class="footer">
+                NavPrana • This is a system-generated invoice.
+            </div>
         </div>
     </div>
 </body>
