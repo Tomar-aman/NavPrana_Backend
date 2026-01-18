@@ -238,12 +238,10 @@ class OrderDetailSerializer(serializers.ModelSerializer):
     def get_invoice_url(self, obj):
         """Get invoice download URL if available"""
         if obj.payment_status == 'paid' and obj.invoice:
+            url = obj.invoice.url # Ensure URL is accessible
             request = self.context.get('request')
             if request:
-                from django.urls import reverse
-                return request.build_absolute_uri(
-                    reverse('download_invoice', kwargs={'order_id': obj.id})
-                )
+                return request.build_absolute_uri(url)
         return None
     
     def get_latest_transaction(self, obj):
