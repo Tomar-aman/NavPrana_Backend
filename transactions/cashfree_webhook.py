@@ -483,11 +483,11 @@ class CashfreeWebhookView(APIView):
                         {"success": True, "message": "Already processed"},
                         status=status.HTTP_200_OK
                     )
-
-                txn.mark_cashfree_success({
-                    "order": order_data,
-                    "payment": payment_data
-                })
+                txn.mark_cashfree_success(data)
+                # txn.mark_cashfree_success({
+                #     "order": order_data,
+                #     "payment": payment_data
+                # })
 
                 logger.info(f"Payment success processed: {order_id}")
 
@@ -528,11 +528,12 @@ class CashfreeWebhookView(APIView):
                 )
                 
                 # Save complete payment details
-                txn.payment_details = {
-                    "order": order_data,
-                    "payment": payment_data,
-                    "error_details": payment_data.get("error_details", {})
-                }
+                # txn.payment_details = {
+                #     "order": order_data,
+                #     "payment": payment_data,
+                #     "error_details": payment_data.get("error_details", {})
+                # }
+                txn.payment_details = data
                 
                 # Extract payment method details if available
                 if payment_data.get("cf_payment_id"):
