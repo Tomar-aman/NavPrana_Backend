@@ -362,6 +362,13 @@ class OrderItem(models.Model):
         decimal_places=2,
         help_text=_('Price of the product at time of order')
     )
+    total_price = models.DecimalField(
+        _('total price'),
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        help_text=_('Total price for this item (price * quantity)')
+    )
     created_at = models.DateTimeField(
         _('created at'),
         auto_now_add=True
@@ -378,4 +385,5 @@ class OrderItem(models.Model):
     def save(self, *args, **kwargs):
         if self.quantity < 1:
             raise ValueError(_("Quantity must be positive"))
+        self.total_price = self.price * self.quantity
         super().save(*args, **kwargs)

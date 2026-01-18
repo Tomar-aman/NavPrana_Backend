@@ -402,20 +402,25 @@ class DownloadInvoiceView(GenericAPIView):
                     }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
             # Return file response
-            from django.http import FileResponse
+
+            return Response({
+                'invoice_url': request.build_absolute_uri(order.invoice.url),
+                'success': True
+            }, status=status.HTTP_200_OK)
+            # from django.http import FileResponse
             
-            try:
-                response = FileResponse(
-                    order.invoice.open('rb'),
-                    content_type='application/pdf'
-                )
-                response['Content-Disposition'] = f'attachment; filename="invoice_{order.id}.pdf"'
-                return response
-            except Exception as e:
-                return Response({
-                    'success': False,
-                    'error': f'Failed to download invoice: {str(e)}'
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            # try:
+            #     response = FileResponse(
+            #         order.invoice.open('rb'),
+            #         content_type='application/pdf'
+            #     )
+            #     response['Content-Disposition'] = f'attachment; filename="invoice_{order.id}.pdf"'
+            #     return response
+            # except Exception as e:
+            #     return Response({
+            #         'success': False,
+            #         'error': f'Failed to download invoice: {str(e)}'
+            #     }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
         except Order.DoesNotExist:
             return Response({

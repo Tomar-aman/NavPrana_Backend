@@ -1,0 +1,202 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Invoice #{{ order.id }}</title>
+
+    <style>
+        @page {
+            size: A4;
+            margin: 2cm 2cm 3cm 2cm;
+        }
+
+        body {
+            font-family: Helvetica, sans-serif;
+            font-size: 11px;
+            color: #2c2c2c;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        td, th {
+            vertical-align: top;
+        }
+
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+        .bold { font-weight: bold; }
+
+        .header-border {
+            border-bottom: 3px solid #1b4332;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .box {
+            background: #f8f9fa;
+            padding: 10px;
+            border-left: 3px solid #1b4332;
+        }
+
+        .item-table th {
+            background: #1b4332;
+            color: #ffffff;
+            padding: 8px;
+            font-size: 11px;
+        }
+
+        .item-table td {
+            padding: 8px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .summary-table td {
+            padding: 6px 0;
+        }
+
+        .summary-total {
+            font-weight: bold;
+            border-top: 2px solid #1b4332;
+            padding-top: 8px;
+        }
+
+        .footer {
+            margin-top: 40px;
+            font-size: 10px;
+            text-align: center;
+            color: #666;
+            border-top: 1px solid #ccc;
+            padding-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+<!-- ================= HEADER ================= -->
+<table class="header-border">
+    <tr>
+        <td width="60%">
+            <span style="font-size:26px;font-weight:bold;color:#1b4332;">NavPrana</span><br>
+            <span style="font-size:11px;color:#666;">Pure &amp; Natural Products</span>
+        </td>
+        <td width="40%" class="text-right">
+            <span style="font-size:22px;font-weight:bold;color:#1b4332;">INVOICE</span><br>
+            Invoice #: {{ order.id }}<br>
+            Date: {{ order.created_at|date:"d M Y" }}
+        </td>
+    </tr>
+</table>
+
+<!-- ================= BILL TO / DETAILS ================= -->
+<table style="margin-bottom:20px;">
+    <tr>
+        <td width="50%" class="box">
+            <strong>Bill To</strong><br><br>
+            <strong>{{ user.first_name }} {{ user.last_name }}</strong><br>
+            {{ user.email }}<br><br>
+
+            {% if order.address %}
+                {{ order.address.address_line1 }}<br>
+                {% if order.address.address_line2 %}
+                    {{ order.address.address_line2 }}<br>
+                {% endif %}
+                {{ order.address.city }}, {{ order.address.state }} {{ order.address.pincode }}<br>
+                {{ order.address.country }}<br>
+                {% if order.address.phone %}
+                    Phone: {{ order.address.phone }}
+                {% endif %}
+            {% endif %}
+        </td>
+
+        <td width="50%" class="box">
+            <strong>Invoice Details</strong><br><br>
+
+            <strong>Transaction ID</strong><br>
+            <span style="font-size:9px;">{{ order.transaction_id|default:"N/A" }}</span><br><br>
+
+            <strong>Payment Status</strong><br>
+            {{ order.payment_status|title }}<br><br>
+
+            <strong>Order Status</strong><br>
+            {{ order.status|title }}
+        </td>
+    </tr>
+</table>
+
+<!-- ================= ITEMS TABLE ================= -->
+<table class="item-table">
+    <thead>
+        <tr>
+            <th width="45%">Item</th>
+            <th width="15%" class="text-center">Qty</th>
+            <th width="20%" class="text-right">Price</th>
+            <th width="20%" class="text-right">Total</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in order.items.all %}
+        <tr>
+            <td>{{ item.product.name }}</td>
+            <td class="text-center">{{ item.quantity }}</td>
+            <td class="text-right">Rs {{ item.price }}</td>
+            <td class="text-right">Rs {{ item.total_price }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- ================= SUMMARY ================= -->
+<table class="summary-table" width="40%" align="right" style="margin-top:20px;">
+    <tr>
+        <td>Subtotal</td>
+        <td class="text-right">Rs {{ order.total_amount }}</td>
+    </tr>
+
+    {% if order.discount_amount and order.discount_amount > 0 %}
+    <tr style="color:#e74c3c;">
+        <td>
+            Discount{% if order.coupon %} ({{ order.coupon.coupon_code }}){% endif %}
+        </td>
+        <td class="text-right">- Rs {{ order.discount_amount }}</td>
+    </tr>
+    {% endif %}
+
+    {% if order.tax_amount and order.tax_amount > 0 %}
+    <tr>
+        <td>Tax{% if order.tax_percentage %} ({{ order.tax_percentage }}%){% endif %}</td>
+        <td class="text-right">Rs {{ order.tax_amount }}</td>
+    </tr>
+    {% endif %}
+
+    <tr class="summary-total">
+        <td>TOTAL</td>
+        <td class="text-right">Rs {{ order.final_amount }}</td>
+    </tr>
+</table>
+
+<!-- ================= NOTES ================= -->
+{% if order.notes %}
+<table style="margin-top:30px;">
+    <tr>
+        <td class="box" style="border-left-color:#ffc107;">
+            <strong>Additional Notes</strong><br>
+            {{ order.notes }}
+        </td>
+    </tr>
+</table>
+{% endif %}
+
+<!-- ================= FOOTER ================= -->
+<div class="footer">
+    Thank you for your purchase! If you have any questions about this invoice<br>
+    please contact us at <strong>support@navprana.com</strong><br>
+    <strong>NavPrana</strong> &nbsp; | &nbsp; Pure &amp; Natural Products
+</div>
+
+</body>
+</html>
