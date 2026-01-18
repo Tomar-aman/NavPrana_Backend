@@ -506,6 +506,8 @@ class CashfreeWebhookView(APIView):
     def _handle_payment_failed(self, data: dict) -> Response:
         order_data = data.get("order", {})
         payment_data = data.get("payment", {})
+        error_details = data.get("error_details", {}) or payment_data.get("error_details", {}) or {}
+
 
         order_id = order_data.get("order_id")
 
@@ -523,25 +525,47 @@ class CashfreeWebhookView(APIView):
 
                 # Store payment details
                 error_msg = (
-                    payment_data.get("error_details", {}).get("error_description")
+                    error_details.get("error_description")
+                    or payment_data.get("payment_message")
+                    or payment_data.get("payment_status")
                     or "Payment failed"
                 )
                 
                 # Save complete payment details
-                # txn.payment_details = {
-                #     "order": order_data,
-                #     "payment": payment_data,
-                #     "error_details": payment_data.get("error_details", {})
-                # }
                 txn.payment_details = data
                 
                 # Extract payment method details if available
-                if payment_data.get("cf_payment_id"):
-                    txn.gateway_payment_id = payment_data.get("cf_payment_id")
+                gateway_details = data.get("payment_gateway_details", {}) or {}
+                if payment_data.get("cf_payment_id") or gateway_details.get("gateway_payment_id"):
+                    txn.gateway_payment_id = payment_data.get("cf_payment_id") or gateway_details.get("gateway_payment_id")
                 if payment_data.get("payment_group"):
                     txn.payment_group = payment_data.get("payment_group")
                 if payment_data.get("bank_reference"):
                     txn.bank_reference = payment_data.get("bank_reference")
+
+                # Derive card/upi/netbanking details if present
+                payment_method_detail = payment_data.get("payment_method") or {}
+                card_detail = payment_method_detail.get("card") if isinstance(payment_method_detail, dict) else None
+
+                # Reset instrument-specific fields
+                txn.payment_instrument_type = None
+                txn.upi_id = None
+                txn.card_type = None
+                txn.card_network = None
+                txn.bank_name = None
+
+                pg_lower = (payment_data.get("payment_group") or "").lower()
+                if card_detail:
+                    txn.payment_instrument_type = "CARD"
+                    txn.card_type = card_detail.get("card_type")
+                    txn.card_network = card_detail.get("card_network")
+                    txn.bank_name = card_detail.get("card_bank_name")
+                elif "upi" in pg_lower:
+                    txn.payment_instrument_type = "UPI"
+                elif "net" in pg_lower and "bank" in pg_lower:
+                    txn.payment_instrument_type = "NETBANKING"
+                elif "wallet" in pg_lower:
+                    txn.payment_instrument_type = "WALLET"
 
                 txn.mark_as_failed(error_msg)
 
