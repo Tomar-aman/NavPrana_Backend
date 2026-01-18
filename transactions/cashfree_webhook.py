@@ -509,22 +509,50 @@ class CashfreeWebhookView(APIView):
 
         order_id = order_data.get("order_id")
 
+        if not order_id:
+            return Response(
+                {"success": False, "error": "Order ID missing"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         try:
-            txn = TransactionLog.objects.get(
-                merchant_transaction_id=order_id
-            )
-            error_msg = (
-                payment_data.get("error_details", {}).get("error_description")
-                or "Payment failed"
-            )
+            with transaction.atomic():
+                txn = TransactionLog.objects.select_for_update().select_related(
+                    "order"
+                ).get(transaction_order_id=order_id)
 
-            txn.mark_as_failed(error_msg)
+                # Store payment details
+                error_msg = (
+                    payment_data.get("error_details", {}).get("error_description")
+                    or "Payment failed"
+                )
+                
+                # Save complete payment details
+                txn.payment_details = {
+                    "order": order_data,
+                    "payment": payment_data,
+                    "error_details": payment_data.get("error_details", {})
+                }
+                
+                # Extract payment method details if available
+                if payment_data.get("cf_payment_id"):
+                    txn.gateway_payment_id = payment_data.get("cf_payment_id")
+                if payment_data.get("payment_group"):
+                    txn.payment_group = payment_data.get("payment_group")
+                if payment_data.get("bank_reference"):
+                    txn.bank_reference = payment_data.get("bank_reference")
 
-            logger.info(f"Payment failed: {order_id}")
+                txn.mark_as_failed(error_msg)
 
-            return Response({"success": True}, status=status.HTTP_200_OK)
+                logger.info(f"Payment failed: {order_id}, Error: {error_msg}")
+
+                return Response(
+                    {"success": True, "message": "Payment failure processed"},
+                    status=status.HTTP_200_OK
+                )
 
         except TransactionLog.DoesNotExist:
+            logger.error(f"Transaction not found: {order_id}")
             return Response(
                 {"success": False, "error": "Transaction not found"},
                 status=status.HTTP_404_NOT_FOUND
@@ -566,7 +594,7 @@ class CashfreeWebhookView(APIView):
 
         try:
             txn = TransactionLog.objects.get(
-                merchant_transaction_id=order_id
+                transaction_order_id=order_id
             )
 
             txn.status = "refunded"

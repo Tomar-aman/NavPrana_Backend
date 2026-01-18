@@ -215,7 +215,6 @@ def send_otp_email(self, subject, template_name, user_id, otp_code):
             to_email=user.email,
         )
         logger.info(f'OTP email sent to {user.email}')
-        print(f'OTP email sent to {user.email}')
         return True
     except User.DoesNotExist:
         logger.error(f'User {user_id} not found for OTP email')

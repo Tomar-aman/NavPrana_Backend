@@ -8,8 +8,11 @@ from users.models import UserAddress
 class Order(models.Model):
     STATUS_CHOICES = (
         ('pending', 'Pending'),
+        ('accepted', 'Accepted'),
         ('processing', 'Processing'),
-        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+        ('shipped', 'Shipped'),
+        ('delivered', 'Delivered'),
         ('cancelled', 'Cancelled'),
     )
 
@@ -258,20 +261,8 @@ class Order(models.Model):
     def mark_as_paid(self, transaction_id):
         """Mark order as paid and generate invoice"""
         self.payment_status = 'paid'
-        self.status = 'processing'
+        self.status = 'accepted'
         self.transaction_id = transaction_id
-        
-        # Generate invoice PDF if not exists
-        if not self.invoice:
-            try:
-                from .invoice_utils import generate_invoice_pdf
-                pdf_file = generate_invoice_pdf(self)
-                self.invoice.save(pdf_file.name, pdf_file, save=False)
-            except Exception as e:
-                # Log error but don't fail the payment
-                import logging
-                logger = logging.getLogger(__name__)
-                logger.error(f"Invoice generation failed for order {self.id}: {str(e)}")
         
         self.save()
         
@@ -295,12 +286,22 @@ class Order(models.Model):
     def mark_as_failed(self):
         """Mark order as failed"""
         self.payment_status = 'failed'
-        self.status = 'cancelled'
+        self.status = 'failed'
         self.save()
     
     def mark_as_completed(self):
         """Mark order as completed"""
         self.status = 'completed'
+        self.save()
+    
+    def mark_as_shipped(self):
+        """Mark order as shipped"""
+        self.status = 'shipped'
+        self.save()
+    
+    def mark_as_delivered(self):
+        """Mark order as delivered"""
+        self.status = 'delivered'
         self.save()
 
 
