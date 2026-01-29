@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Product, ProductImage, Category, ProductReview, ProductFeature
+from .models import Product, ProductImage, Category, ProductReview, ProductFeature, ProductSpecification
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
@@ -22,6 +22,11 @@ class ProductImageInline(admin.TabularInline):
     extra = 1
     readonly_fields = ('created_at',)
 
+class ProductSpecificationInline(admin.TabularInline):
+    model = ProductSpecification
+    extra = 1
+    readonly_fields = ('created_at',)
+
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
     list_display = ('name', 'size', 'category', 'price', 'max_quantity', 'available_quantity', 'created_at', 'updated_at')
@@ -33,7 +38,7 @@ class ProductAdmin(admin.ModelAdmin):
         (None, {'fields': ('name', 'size', 'category', 'description', 'details', 'price','max_price', 'discount_precent', 'max_quantity', 'available_quantity')}),
         ('Timestamps', {'fields': ('created_at', 'updated_at')}),
     )
-    inlines = [ProductImageInline, ProductFeatureInline]
+    inlines = [ProductImageInline, ProductFeatureInline, ProductSpecificationInline]
 
 @admin.register(ProductImage)
 class ProductImageAdmin(admin.ModelAdmin):

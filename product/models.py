@@ -27,8 +27,8 @@ class Category(BaseModel):
 
 class Product(models.Model):
     SIZE_CHOICES = [
-        ('500g', '500 grams'),
-        ('1kg', '1 kilogram'),
+        ('500ml', '500 milliliters'),
+        ('1L', '1 liter'),
     ]
     name = models.CharField(
         _('product name'),
@@ -54,9 +54,8 @@ class Product(models.Model):
         verbose_name=_('category'),
         help_text=_('Select the category for this product')
     )
-    details = models.CharField(
+    details = models.TextField(
         _('product details'),
-        max_length=255,
         blank=True,
         null=True,
         help_text=_('Enter the product details')
@@ -133,7 +132,7 @@ class Product(models.Model):
             raise ValueError(_("Available quantity cannot exceed maximum quantity"))
         if self.discount_precent < 0 or self.discount_precent > 100:
             raise ValueError(_("Discount percent must be between 0 and 100"))
-        self.price = self.max_price - (self.max_price * self.discount_precent / 100)
+        self.price = round(self.max_price - (self.max_price * self.discount_precent / 100))
         super().save(*args, **kwargs)
 
 
@@ -237,3 +236,22 @@ class ProductFeature(BaseModel):
 
     def __str__(self):
         return f'{self.feature}'
+    
+class ProductSpecification(BaseModel):
+    product = models.OneToOneField(
+        Product,
+        on_delete=models.CASCADE,
+        related_name='specifications',
+        verbose_name=_('product')
+    )
+    specification = models.TextField(
+        _('specification name'),
+        help_text=_('Enter the specification name')
+    )
+    class Meta:
+        verbose_name = _('product specification')
+        verbose_name_plural = _('product specifications')
+        ordering = ['specification']
+
+    def __str__(self):
+        return f'{self.pk}'
