@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Product, ProductImage, ProductReview, Category, ProductFeature
+from .models import Product, ProductImage, ProductReview, Category, ProductFeature, ProductSpecification
 
 class ProductImageSerializer(serializers.ModelSerializer):
     class Meta:
@@ -16,17 +16,24 @@ class ProductFeatureSerializer(serializers.ModelSerializer):
         model = ProductFeature
         fields = ['feature']
 
+
+class ProductSpecificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductSpecification
+        fields = ['specification']
+
 class ProductSerializer(serializers.ModelSerializer):
     images = ProductImageSerializer(many=True, read_only=True)
     reviews = ProductReviewSerializer(many=True, read_only=True)
     features = ProductFeatureSerializer(many=True, read_only=True)
+    specifications = ProductSpecificationSerializer(read_only=True)
     average_rating = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = [
             'id', 'name', 'size', 'details',
-            'description','max_price' ,'price', 'discount_precent' ,'available_quantity', 'max_quantity', 'images' ,'average_rating', 'reviews', 'features'
+            'description','max_price' ,'price', 'discount_precent' ,'available_quantity', 'max_quantity', 'images' ,'average_rating', 'reviews', 'features', 'specifications'
         ]
     
     def get_average_rating(self, obj):
