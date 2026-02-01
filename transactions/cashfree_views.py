@@ -108,7 +108,8 @@ class CashfreeCreateOrderAndPaymentView(APIView):
                 
                 # Create Cashfree order
                 payment_response = cashfree_service.create_order(
-                    order_id=f"NAV_ORDER_{order.id}_{order.created_at.timestamp()}",
+                    order_id=f"NAV_ORDER_{order.id}",
+                    # order_id=f"NAV_ORDER_{order.id}_{order.created_at.timestamp()}",
                     amount=order.final_amount,
                     customer_details=customer_details,
                     order_meta=order_meta,
