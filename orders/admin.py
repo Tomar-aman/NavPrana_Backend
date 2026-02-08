@@ -14,7 +14,7 @@ class OrderAdmin(admin.ModelAdmin):
     readonly_fields = ('created_at', 'updated_at')
     ordering = ('-created_at',)
     fieldsets = (
-        (None, {'fields': ('user','address', 'status','payment_status' , 'final_amount', 'total_amount', 'discount_amount',  'coupon', 'transaction_id','invoice',)}),
+        (None, {'fields': ('user','address', 'status','payment_status' , 'final_amount', 'total_amount','tax_percentage','tax_amount', 'discount_amount',  'coupon', 'transaction_id','invoice',)}),
         ('Timestamps', {'fields': ('created_at', 'updated_at')}),
     )
     inlines = [OrderItemInline]

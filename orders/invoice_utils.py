@@ -29,6 +29,7 @@ class InvoiceGenerator:
             context = {
                 'order': self.order,
                 'user': self.order.user,
+                'seller': settings.SELLER_DETAILS,
                 'site_url': settings.SITE_URL if hasattr(settings, 'SITE_URL') else 'https://navprana.com',
                 'frontend_url': settings.FRONTEND_URL if hasattr(settings, 'FRONTEND_URL') else 'https://navprana.com',
             }

@@ -44,7 +44,7 @@ runserver.default_port = PORT
 ADDRESS = config("DJANGO_ADDRESS")
 runserver.default_addr = ADDRESS
 
-SITE_URL = config("SITE_URL", default="http://127.0.0.1:1921")
+SITE_URL = config("SITE_URL", default="http://127.0.0.1:1212")
 
 FRONTEND_URL = config("FRONTEND_URL", default="http://localhost:3000")
 
@@ -276,6 +276,19 @@ LOGGING = {
             'propagate': True,
         },
     }
+}
+
+# GST and Invoice settings
+
+SELLER_DETAILS = {
+    "legal_name": "NavPrana Organics (Proprietorship)",
+    "trade_name": "NavPrana",
+    "gstin": "09ABCDE1234F1Z5",
+    "address": "L-232, Old Housing Board Colony, Morena, Madhya Pradesh, 476001",
+    "state": "Madhya Pradesh",
+    "state_code": "23",
+    "email": "support@navprana.com",
+    "phone": "+91-75095-31811",
 }
 
 

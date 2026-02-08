@@ -155,7 +155,7 @@ class Order(models.Model):
         if not self.coupon:
             return 0
         if self.coupon.percent > 0:
-            return (self.total_amount * self.coupon.percent) / 100
+            return round((self.total_amount * self.coupon.percent) / 100)
         else:
             return self.coupon.amount
     
@@ -163,13 +163,14 @@ class Order(models.Model):
         """Calculate tax amount"""
         if self.tax_percentage:
             discounted_amount = self.total_amount - self.discount_amount
-            return (discounted_amount * self.tax_percentage) / 100
+            return round((discounted_amount * self.tax_percentage) / 100)        
         return 0
     
     def calculate_final_amount(self):
         """Calculate final amount after discount and tax"""
         amount_after_discount = self.total_amount - self.discount_amount
-        final = amount_after_discount + self.tax_amount
+        final = round(amount_after_discount)
+        # final = amount_after_discount + self.tax_amount
         return max(final, 0)
     
     def save(self, *args, **kwargs):
@@ -241,7 +242,7 @@ class Order(models.Model):
             address=shipping_address,
             total_amount=total_amount,
             coupon=applied_coupon,
-            tax_percentage=tax_percentage or Decimal('0.00'),
+            tax_percentage=tax_percentage or Decimal('5.00'), # Default tax percentage 5% if not provided
             notes=notes,
             status='pending',
             payment_status='pending'
