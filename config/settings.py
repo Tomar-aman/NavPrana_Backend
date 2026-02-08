@@ -78,6 +78,7 @@ INSTALLED_APPS = [
     'cart',
     'orders',
     'transactions',
+    'lab_report',
     # 'notification',
     
 ]
