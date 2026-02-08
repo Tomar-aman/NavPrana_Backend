@@ -2,6 +2,8 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 from config.models import BaseModel
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.exceptions import ValidationError
+from django.core.validators import FileExtensionValidator
 
 class Category(BaseModel):
     name = models.CharField(
@@ -185,7 +187,7 @@ class ProductReview(BaseModel):
         related_name='product_reviews',
         verbose_name=_('user')
     )
-    rating = models.PositiveIntegerField(
+    rating = models.PositiveSmallIntegerField(
         _('rating'),
         help_text=_('Enter a rating between 1 and 5'),
         validators=[
@@ -198,25 +200,70 @@ class ProductReview(BaseModel):
         blank=True,
         help_text=_('Write your review here')
     )
-    created_at = models.DateTimeField(
-        _('created at'),
-        auto_now_add=True
-    )
-    updated_at = models.DateTimeField(
-        _('updated at'),
-        auto_now=True
-    )
 
     class Meta:
         verbose_name = _('product review')
         verbose_name_plural = _('product reviews')
         ordering = ['-created_at']
         unique_together = ('product', 'user')
+        indexes = [
+            models.Index(fields=['product', 'created_at']),
+            models.Index(fields=['user']),
+        ]
 
     def __str__(self):
         return f'Review by {self.user.email} for {self.product.name}'
 
+class ProductReviewMedia(BaseModel):
+    MEDIA_TYPE_CHOICES = (
+        ('image', 'Image'),
+        ('video', 'Video'),
+    )
 
+    review = models.ForeignKey(
+        ProductReview,
+        on_delete=models.CASCADE,
+        related_name='media',
+        verbose_name=_('product review')
+    )
+
+    media_type = models.CharField(
+        max_length=10,
+        choices=MEDIA_TYPE_CHOICES
+    )
+
+    file = models.FileField(
+        upload_to='product_reviews/%Y/%m/%d/' ,
+        validators=[
+            FileExtensionValidator(
+                allowed_extensions=['jpg','jpeg','png','webp','mp4','mov','webm']
+            )
+        ]
+    )
+
+    alt_text = models.CharField(
+        max_length=255,
+        blank=True
+    )
+
+    class Meta:
+        verbose_name = _('product review media')
+        verbose_name_plural = _('product review media')
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['review', 'media_type']),
+        ]
+
+    def __str__(self):
+        return f"{self.media_type} for review {self.review_id}"
+
+    def clean(self):
+        if self.media_type == 'image' and not self.file.name.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
+            raise ValidationError("Invalid image format")
+
+        if self.media_type == 'video' and not self.file.name.lower().endswith(('.mp4', '.mov', '.webm')):
+            raise ValidationError("Invalid video format")
+    
 class ProductFeature(BaseModel):
     product = models.ForeignKey(
         Product,

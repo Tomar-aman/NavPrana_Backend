@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Product, ProductImage, Category, ProductReview, ProductFeature, ProductSpecification
+from .models import Product, ProductImage, Category, ProductReview, ProductFeature, ProductSpecification , ProductReviewMedia
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
@@ -11,6 +11,7 @@ class CategoryAdmin(admin.ModelAdmin):
         (None, {'fields': ('name', 'description')}),
         ('Timestamps', {'fields': ('created_at', 'updated_at')}),
     )
+
 
 class ProductFeatureInline(admin.TabularInline):
     model = ProductFeature
@@ -27,6 +28,16 @@ class ProductSpecificationInline(admin.TabularInline):
     extra = 1
     readonly_fields = ('created_at',)
 
+class ProductReviewMediaInline(admin.TabularInline):
+    model = ProductReviewMedia
+    extra = 1
+    readonly_fields = ('created_at',)
+
+class ProductReviewInline(admin.TabularInline):
+    model = ProductReview
+    extra = 1
+    readonly_fields = ('created_at',)
+
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
     list_display = ('name', 'size', 'category', 'price', 'max_quantity', 'available_quantity', 'created_at', 'updated_at')
@@ -38,7 +49,7 @@ class ProductAdmin(admin.ModelAdmin):
         (None, {'fields': ('name', 'size', 'category', 'description', 'details', 'price','max_price', 'discount_precent', 'max_quantity', 'available_quantity')}),
         ('Timestamps', {'fields': ('created_at', 'updated_at')}),
     )
-    inlines = [ProductImageInline, ProductFeatureInline, ProductSpecificationInline]
+    inlines = [ProductImageInline, ProductFeatureInline, ProductSpecificationInline, ProductReviewInline]
 
 @admin.register(ProductImage)
 class ProductImageAdmin(admin.ModelAdmin):
@@ -63,6 +74,30 @@ class ProductReviewAdmin(admin.ModelAdmin):
     fieldsets = (
         (None, {'fields': ('product', 'user', 'rating', 'review')}),
         ('Timestamps', {'fields': ('created_at', 'updated_at')}),
+    )
+    inlines = [ProductReviewMediaInline]
+
+@admin.register(ProductSpecification)
+class ProductSpecificationAdmin(admin.ModelAdmin):
+    list_display = ('product', 'specification', 'created_at')
+    search_fields = ('product__name', 'specification')
+    readonly_fields = ('created_at',)
+    ordering = ('-created_at',)
+    fieldsets = (
+        (None, {'fields': ('product', 'specification')}),
+        ('Timestamps', {'fields': ('created_at',)}),
+    )
+
+@admin.register(ProductReviewMedia)
+class ProductReviewMediaAdmin(admin.ModelAdmin):
+    list_display = ('review', 'media_type', 'file', 'created_at')
+    list_filter = ('media_type', 'created_at')
+    search_fields = ('review__product__name', 'review__user__email')
+    readonly_fields = ('created_at',)
+    ordering = ('-created_at',)
+    fieldsets = (
+        (None, {'fields': ('review', 'media_type', 'file', 'alt_text')}),
+        ('Timestamps', {'fields': ('created_at',)}),
     )
 
 @admin.register(ProductFeature)
