@@ -394,7 +394,6 @@ class DownloadInvoiceView(GenericAPIView):
                 try:
                     from .invoice_utils import generate_invoice_pdf
                     pdf_file = generate_invoice_pdf(order)
-                    print(f"Generated PDF file: {pdf_file.name}, size: {pdf_file.size} bytes")
                     order.invoice.save(pdf_file.name, pdf_file, save=True)
                 except Exception as e:
                     return Response({
