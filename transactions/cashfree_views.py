@@ -16,7 +16,7 @@ from django.db import transaction as db_transaction
 from django.shortcuts import redirect
 from decimal import Decimal
 import logging
-from config.settings import FRONTEND_URL
+from config.settings import FRONTEND_URL, SITE_URL
 from .cashfree_service import CashfreePaymentService
 from transactions.models import TransactionLog
 from orders.models import Order
@@ -102,7 +102,7 @@ class CashfreeCreateOrderAndPaymentView(APIView):
                 order_meta = {
                     'return_url': return_url,
                     'notify_url': request.data.get('notify_url',
-                        f'{request.scheme}://{request.get_host()}/api/payments/cashfree/webhook/'),
+                        f'{SITE_URL}/api/payments/cashfree/webhook/'),
                     'payment_methods': 'cc,dc,nb,upi,app'  # Example: credit card, debit card, net banking, UPI, wallet
                 }
                 
