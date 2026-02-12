@@ -124,7 +124,7 @@ td, th { vertical-align: top; }
             {% if order.address.address_line2 %}
                 {{ order.address.address_line2 }}<br>
             {% endif %}
-            {{ order.address.city }}, {{ order.address.state }} – {{ order.address.pincode }}<br>
+            {{ order.address.city }}, {{ order.address.state }} – {{ order.address.postal_code }}<br>
             {{ order.address.country }}
         </span>
     {% endif %}
