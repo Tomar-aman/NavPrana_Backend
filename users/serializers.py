@@ -279,6 +279,8 @@ class GoogleAuthSerializer(serializers.Serializer):
                     "first_name": first_name,
                     "last_name": last_name,
                     "google_id": google_id,
+                    "is_active": True,
+                    "email_verified": True,
                 }
             )
             # Update profile image
