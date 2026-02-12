@@ -292,6 +292,8 @@ class GoogleAuthSerializer(serializers.Serializer):
             # Step 4: Update google_id if it's missing
             if not created and not user.google_id:
                 user.google_id = google_id
+                user.is_active = True  # Ensure user is active if they log in with Google
+                user.email_verified = True  # Mark email as verified if logging in with Google
                 user.save()
             
             attrs["user"] = user
@@ -358,7 +360,7 @@ class FacebookAuthSerializer(serializers.Serializer):
             # Step 4: Update facebook_id if missing
             if not created and not user.facebook_id:
                 user.facebook_id = fb_id
-                user.save()
+                user.is_active = True  # Ensure user is active if they log in with Facebook
 
             attrs["user"] = user
             attrs["is_new_user"] = created
