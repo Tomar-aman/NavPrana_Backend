@@ -282,9 +282,9 @@ LOGGING = {
 # GST and Invoice settings
 
 SELLER_DETAILS = {
-    "legal_name": "NavPrana Organics (Proprietorship)",
+    "legal_name": "NavPrana Organics",
     "trade_name": "NavPrana",
-    "gstin": "09ABCDE1234F1Z5",
+    "gstin": "23CKSPT8311D1ZZ",
     "address": "L-232, Old Housing Board Colony, Morena, Madhya Pradesh, 476001",
     "state": "Madhya Pradesh",
     "state_code": "23",
