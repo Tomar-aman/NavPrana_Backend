@@ -14,7 +14,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True, max_retries=3)
+# @shared_task(bind=True, max_retries=3)
 def send_order_confirmation_email(self, order_id):
     """
     Send order confirmation email to customer
@@ -71,7 +71,7 @@ def send_order_confirmation_email(self, order_id):
         raise self.retry(exc=exc, countdown=60 * (2 ** self.request.retries))
 
 
-@shared_task(bind=True, max_retries=3)
+# @shared_task(bind=True, max_retries=3)
 def send_payment_success_email(self, order_id, transaction_id):
     """
     Send payment success email to customer
@@ -128,7 +128,7 @@ def send_payment_success_email(self, order_id, transaction_id):
         raise self.retry(exc=exc, countdown=60 * (2 ** self.request.retries))
 
 
-@shared_task(bind=True, max_retries=3)
+# @shared_task(bind=True, max_retries=3)
 def send_payment_failed_email(self, order_id, error_message=None):
     """
     Send payment failure notification email to customer
@@ -183,7 +183,7 @@ def send_payment_failed_email(self, order_id, error_message=None):
         raise self.retry(exc=exc, countdown=60 * (2 ** self.request.retries))
 
 
-@shared_task(bind=True, max_retries=3)
+# @shared_task(bind=True, max_retries=3)
 def send_order_shipped_email(self, order_id, tracking_number=None):
     """
     Send order shipped notification email to customer
@@ -240,7 +240,7 @@ def send_order_shipped_email(self, order_id, tracking_number=None):
         raise self.retry(exc=exc, countdown=60 * (2 ** self.request.retries))
 
 
-@shared_task(bind=True, max_retries=3)
+# @shared_task(bind=True, max_retries=3)
 def send_order_delivered_email(self, order_id):
     """
     Send order delivery confirmation email to customer
@@ -295,7 +295,7 @@ def send_order_delivered_email(self, order_id):
         raise self.retry(exc=exc, countdown=60 * (2 ** self.request.retries))
 
 
-@shared_task(bind=True, max_retries=3)
+# @shared_task(bind=True, max_retries=3)
 def send_invoice_email(self, order_id):
     """
     Send invoice email with attachment to customer
@@ -365,7 +365,7 @@ def send_invoice_email(self, order_id):
         raise self.retry(exc=exc, countdown=60 * (2 ** self.request.retries))
 
 
-@shared_task
+# @shared_task
 def send_contact_reply_email(email_to, name, subject, message):
     """
     Send contact form reply email

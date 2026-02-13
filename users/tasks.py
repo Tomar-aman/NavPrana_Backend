@@ -14,7 +14,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True, max_retries=3)
+# @shared_task(bind=True, max_retries=3)
 def send_welcome_email(self, user_id):
     """
     Send welcome email to new user
@@ -66,7 +66,7 @@ def send_welcome_email(self, user_id):
         raise self.retry(exc=exc, countdown=60 * (2 ** self.request.retries))
 
 
-@shared_task(bind=True, max_retries=3)
+# @shared_task(bind=True, max_retries=3)
 def send_email_verification_email(self, user_id, verification_code):
     """
     Send email verification code to user
@@ -121,7 +121,7 @@ def send_email_verification_email(self, user_id, verification_code):
         raise self.retry(exc=exc, countdown=60 * (2 ** self.request.retries))
 
 
-@shared_task(bind=True, max_retries=3)
+# @shared_task(bind=True, max_retries=3)
 def send_password_reset_email(self, user_id, reset_token):
     """
     Send password reset email to user
