@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Closed | Navprana</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #020617;
+            color: #94a3b8;
+            display: flex;
+            min-height: 100vh;
+            align-items: center;
+            justify-content: center;
+        }
+        .card {
+            text-align: center;
+            background: #0f172a;
+            padding: 50px;
+            border-radius: 20px;
+            border: 1px solid #1e293b;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+            max-width: 400px;
+        }
+        h1 {
+            color: #f8fafc;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        p {
+            font-size: 15px;
+            margin-bottom: 30px;
+            line-height: 1.5;
+        }
+        .close-btn {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, background 0.2s;
+        }
+        .close-btn:hover {
+            background: #dc2626;
+            transform: scale(1.05);
+        }
+        #fallback-text {
+            display: none;
+            margin-top: 15px;
+            font-size: 12px;
+            color: #ef4444;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <div style="font-size: 50px; margin-bottom: 20px;">🚫</div>
+        <h1>Navprana Admin</h1>
+        <p>This session has ended or the page has been restricted. Please close this tab to ensure security.</p>
+        
+        <button class="close-btn" onclick="closeTab()">Close This Tab</button>
+        
+        <p id="fallback-text">Browser blocked auto-close. Please close this tab manually.</p>
+    </div>
+
+    <script>
+        function closeTab() {
+            // Attempt to close the window
+            window.close();
+
+            // Fallback for modern browsers (Chrome/Firefox/Safari)
+            // If window.close() fails, we show the manual instruction
+            setTimeout(() => {
+                document.getElementById('fallback-text').style.display = 'block';
+            }, 500);
+        }
+    </script>
+
+</body>
+</html>

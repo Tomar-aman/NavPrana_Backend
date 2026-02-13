@@ -21,6 +21,7 @@ from django.conf.urls.static import static
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 from rest_framework import permissions
+from config.views import custom_404_view
 
 schema_view = get_schema_view(
    openapi.Info(
@@ -47,3 +48,7 @@ urlpatterns = [
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+urlpatterns += [re_path(r'^.*$', custom_404_view)]
+
+handler404 = "config.views.custom_404_view"
