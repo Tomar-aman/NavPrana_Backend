@@ -114,7 +114,44 @@ class Address(BaseModel):
     def __str__(self):
         return f"{self.address_line1}, {self.city}, {self.country}"
     
+class FAQCategory(BaseModel):
+    name = models.CharField(
+        _('name'),
+        max_length=255,
+        help_text=_('Enter the name of the FAQ category')
+    )              
+    slug = models.SlugField(
+        _('slug'),
+        max_length=255,
+        unique=True,
+        help_text=_('Enter a unique slug for the FAQ category')
+    ) 
+    order = models.PositiveIntegerField(
+        _('order'),
+        default=0,
+        help_text=_('Enter the display order for the FAQ category')
+    )
+    is_active = models.BooleanField(
+        _('is active'),
+        default=True,
+        help_text=_('Indicates whether the FAQ category is active')
+    )
+    class Meta:
+        ordering = ['order']
+        verbose_name_plural = 'FAQ Categories'
+    def __str__(self):
+        return self.name
+    
+
 class FAQs(BaseModel):
+    category = models.ForeignKey(
+        FAQCategory,
+        on_delete=models.CASCADE,
+        related_name='faqs',
+        verbose_name=_('category'),
+        help_text=_('Select the category for this FAQ'),
+        null=True,
+    )
     question = models.TextField(
         _('question'),
         help_text=_('Enter the frequently asked question')
@@ -123,10 +160,20 @@ class FAQs(BaseModel):
         _('answer'),
         help_text=_('Enter the answer to the frequently asked question')
     )
+    order = models.PositiveIntegerField(
+        _('order'),
+        default=0,
+        help_text=_('Enter the display order for this FAQ')
+    )
+    is_active = models.BooleanField(
+        _('is active'),
+        default=True,
+        help_text=_('Indicates whether this FAQ is active')
+    )
     class Meta:
         verbose_name = _('FAQ')
         verbose_name_plural = _('FAQs')
-        ordering = ['-created_at']
+        ordering = ['order']
     
     def __str__(self):
         return self.question
