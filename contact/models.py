@@ -205,3 +205,20 @@ class SocialMediaLink(BaseModel):
 
     def __str__(self):
         return f"{self.platform_name}: {self.url}"
+
+
+class Subscriber(BaseModel):
+    email = models.EmailField(
+        _('email'),
+        max_length=255,
+        unique=True,
+        help_text=_('Enter the email address to subscribe')
+    )
+
+    class Meta:
+        verbose_name = _('Subscriber')
+        verbose_name_plural = _('Subscribers')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.email
