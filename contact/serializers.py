@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import SendUsQuery, PhoneNumber, Email, Address, FAQs, SocialMediaLink
+from .models import FAQCategory, SendUsQuery, PhoneNumber, Email, Address, FAQs, SocialMediaLink, Subscriber
 
 class SendUsQuerySerializer(serializers.ModelSerializer):
     class Meta:
@@ -31,6 +31,12 @@ class FAQsSerializer(serializers.ModelSerializer):
         fields = ['id', 'question', 'answer',]
         read_only_fields = ['created_at', 'updated_at']
 
+class FAQCategorySerializer(serializers.ModelSerializer):
+    faqs = FAQsSerializer(many=True, read_only=True)
+    class Meta:
+        model = FAQCategory
+        fields = ['id', 'name', 'slug', 'faqs']
+
 class SocialMediaLinkSerializer(serializers.ModelSerializer):
     class Meta:
         model = SocialMediaLink
@@ -47,4 +53,10 @@ class SocialMediaLinkSerializer(serializers.ModelSerializer):
     class Meta:
         model = SocialMediaLink
         fields = ['id', 'platform_name', 'url']
+        read_only_fields = ['created_at', 'updated_at']
+
+class SubscriberSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Subscriber
+        fields = ['id', 'email']
         read_only_fields = ['created_at', 'updated_at']

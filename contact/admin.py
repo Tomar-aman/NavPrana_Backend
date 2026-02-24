@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import SendUsQuery, PhoneNumber, Email, Address, FAQs, SocialMediaLink
+from .models import SendUsQuery, PhoneNumber, Email, Address, FAQCategory, FAQs, SocialMediaLink
 
 @admin.register(SendUsQuery)
 class SendUsQueryAdmin(admin.ModelAdmin):
@@ -46,13 +46,25 @@ class AddressAdmin(admin.ModelAdmin):
         ('Timestamps', {'fields': ('created_at', 'updated_at')}),
     )
 
+@admin.register(FAQCategory)
+class FAQCategoryAdmin(admin.ModelAdmin):
+    list_display = ('name', 'slug', 'order', 'is_active', 'created_at')
+    list_filter = ('is_active', 'created_at')
+    search_fields = ('name', 'slug')
+    ordering = ('order',)
+    readonly_fields = ('created_at', 'updated_at')
+    fieldsets = (
+        (None, {'fields': ('name', 'slug', 'order', 'is_active')}),
+        ('Timestamps', {'fields': ('created_at', 'updated_at')}),
+    )
+
 @admin.register(FAQs)
 class FAQsAdmin(admin.ModelAdmin):
-    list_display = ('question', 'created_at')
+    list_display = ('question', 'category', 'is_active', 'created_at')
     ordering = ('-created_at',)
     readonly_fields = ( 'created_at', 'updated_at')
     fieldsets = (
-        (None, {'fields': ('question', 'answer')}),
+        (None, {'fields': ('question', 'answer', 'category', 'order' ,'is_active')}),
         ('Timestamps', {'fields': ('created_at', 'updated_at')}),
     )
 
