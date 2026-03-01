@@ -24,6 +24,7 @@ from drf_yasg import openapi
 from rest_framework import permissions
 
 from config.views import custom_404_view
+from transactions.cashfree_webhook import CashfreeWebhookView
 
 schema_view = get_schema_view(
    openapi.Info(
@@ -46,6 +47,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('reports/', include('lab_report.url')),
     path("api/", include("config.apis", namespace="api")),
+    path("api/payments/cashfree/webhook/", CashfreeWebhookView.as_view(), name="cashfree_webhook_direct"),
 ]
 
 if settings.DEBUG:
