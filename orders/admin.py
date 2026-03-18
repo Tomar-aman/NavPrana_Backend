@@ -29,12 +29,12 @@ class OrderAdmin(admin.ModelAdmin):
     )
     inlines = [OrderItemInline]
 
-    @admin.action(description='Download all invoices as a single PDF')
+    @admin.action(description='Download selected invoices as a single PDF')
     def download_all_invoices_single_pdf(self, request, queryset):
-        queryset = Order.objects.order_by('created_at')
+        queryset = queryset.order_by('created_at')
 
         if not queryset.exists():
-            self.message_user(request, 'No orders found to prepare invoices.', level=messages.ERROR)
+            self.message_user(request, 'No selected orders found to prepare invoices.', level=messages.ERROR)
             return None
         try:
             merged_file, generated_count, failed_order_ids = generate_and_merge_invoices_pdf(queryset)
