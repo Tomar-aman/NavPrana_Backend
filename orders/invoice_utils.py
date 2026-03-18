@@ -8,6 +8,7 @@ import logging
 from datetime import datetime
 from django.core.files.base import ContentFile
 from django.template.loader import render_to_string
+import fitz
 from xhtml2pdf import pisa
 from django.conf import settings
 import os
@@ -91,3 +92,62 @@ def generate_invoice_pdf(order):
     """
     generator = InvoiceGenerator(order)
     return generator.generate()
+
+
+def generate_and_merge_invoices_pdf(orders):
+    """
+    Generate missing invoices (if any) and merge all available invoices into one PDF.
+
+    Args:
+        orders: Iterable/queryset of Order instances
+
+    Returns:
+        tuple(ContentFile, int, list[int]): merged PDF file, generated count, failed order IDs
+    """
+    merged_pdf = fitz.open()
+    generated_count = 0
+    merged_count = 0
+    failed_order_ids = []
+
+    try:
+        for order in orders:
+            if not order.invoice:
+                try:
+                    pdf_file = generate_invoice_pdf(order)
+                    order.invoice.save(pdf_file.name, pdf_file, save=True)
+                    generated_count += 1
+                    order.refresh_from_db(fields=['invoice'])
+                except Exception:
+                    logger.exception('Failed generating invoice for order %s', order.id)
+                    failed_order_ids.append(order.id)
+                    continue
+
+            try:
+                order.invoice.open('rb')
+                invoice_data = order.invoice.read()
+            except Exception:
+                logger.exception('Failed reading invoice for order %s', order.id)
+                failed_order_ids.append(order.id)
+                continue
+            finally:
+                try:
+                    order.invoice.close()
+                except Exception:
+                    pass
+
+            try:
+                with fitz.open(stream=invoice_data, filetype='pdf') as invoice_pdf:
+                    merged_pdf.insert_pdf(invoice_pdf)
+                merged_count += 1
+            except Exception:
+                logger.exception('Failed merging invoice for order %s', order.id)
+                failed_order_ids.append(order.id)
+
+        if merged_count == 0:
+            raise ValueError('No valid invoices available to merge.')
+
+        filename = f'invoices_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf'
+        merged_file = ContentFile(merged_pdf.tobytes(), name=filename)
+        return merged_file, generated_count, failed_order_ids
+    finally:
+        merged_pdf.close()
