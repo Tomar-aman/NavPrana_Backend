@@ -1,4 +1,5 @@
 from django.db import models
+from decimal import Decimal
 from config import settings
 from django.utils.translation import gettext_lazy as _
 from coupon.models import Coupon
@@ -6,6 +7,8 @@ from product.models import Product
 from users.models import UserAddress
 
 class Order(models.Model):
+    COD_HANDLING_FEE = Decimal('20.00')
+
     STATUS_CHOICES = (
         ('pending', 'Pending'),
         ('accepted', 'Accepted'),
@@ -182,9 +185,13 @@ class Order(models.Model):
     def calculate_final_amount(self):
         """Calculate final amount after discount and tax"""
         amount_after_discount = self.total_amount - self.discount_amount
-        final = round(amount_after_discount)
+        final = Decimal(str(round(amount_after_discount)))
+
+        if self.payment_method == 'cod':
+            final += self.COD_HANDLING_FEE
+
         # final = amount_after_discount + self.tax_amount
-        return max(final, 0)
+        return max(final, Decimal('0.00'))
     
     def save(self, *args, **kwargs):
         # Calculate discount

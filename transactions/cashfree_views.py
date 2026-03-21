@@ -97,6 +97,9 @@ class CashfreeCreateOrderAndPaymentView(APIView):
                     order.transaction_id = transaction_order_id
                     order.save(update_fields=['transaction_id', 'updated_at'])
 
+                    from cart.models import Cart
+                    Cart.objects.filter(user=user).delete()
+
                     return Response({
                         'success': True,
                         'order_id': order.id,
@@ -110,6 +113,7 @@ class CashfreeCreateOrderAndPaymentView(APIView):
                             'total_amount': float(order.total_amount),
                             'discount_amount': float(order.discount_amount),
                             'tax_amount': float(order.tax_amount),
+                            'handling_fee': float(Order.COD_HANDLING_FEE),
                             'final_amount': float(order.final_amount),
                             'currency': 'INR',
                             'items_count': order.items.count()
