@@ -27,7 +27,9 @@ class Order(models.Model):
     )
 
     PAYMENT_METHOD_CHOICES = (
-        ('cashfree', 'Cashfree'),
+        ('upi', 'UPI'),
+        ('netbanking', 'Net Banking'),
+        ('card', 'Card Payment'),
         ('cod', 'Cash on Delivery'),
     )
 
@@ -100,7 +102,7 @@ class Order(models.Model):
         _('payment method'),
         max_length=20,
         choices=PAYMENT_METHOD_CHOICES,
-        default='cashfree',
+        default='upi',
         help_text=_('Payment method selected for this order'),
         db_index=True
     )
@@ -219,7 +221,7 @@ class Order(models.Model):
         coupon_code=None,
         tax_percentage=None,
         notes=None,
-        payment_method='cashfree',
+        payment_method='upi',
         initial_status='pending'
     ):
         """
