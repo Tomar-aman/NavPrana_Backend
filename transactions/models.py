@@ -8,6 +8,7 @@ class TransactionLog(models.Model):
     PAYMENT_METHODS = (
         ('phonepe', 'PhonePe'),
         ('cashfree', 'Cashfree'),
+        ('cod', 'Cash on Delivery'),
         ('stripe', 'Stripe'),
         ('upi', 'UPI'),
         ('card', 'Card'),
@@ -270,6 +271,18 @@ class TransactionLog(models.Model):
             cashfree_order_id=cashfree_order_id,
             payment_session_id=payment_session_id,
             order_token=order_token,
+            status='pending'
+        )
+
+    @classmethod
+    def create_cod_transaction(cls, order, order_id, amount):
+        """Create a COD transaction log in pending state."""
+        return cls.objects.create(
+            user=order.user,
+            order=order,
+            payment_method='cod',
+            amount=amount,
+            transaction_order_id=order_id,
             status='pending'
         )
     

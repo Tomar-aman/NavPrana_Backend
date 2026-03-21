@@ -23,6 +23,11 @@ class Order(models.Model):
         ('refunded', 'Refunded'),
     )
 
+    PAYMENT_METHOD_CHOICES = (
+        ('cashfree', 'Cashfree'),
+        ('cod', 'Cash on Delivery'),
+    )
+
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -86,6 +91,14 @@ class Order(models.Model):
         choices=PAYMENT_STATUS_CHOICES,
         default='pending',
         help_text=_('Current payment status of the order'),
+        db_index=True
+    )
+    payment_method = models.CharField(
+        _('payment method'),
+        max_length=20,
+        choices=PAYMENT_METHOD_CHOICES,
+        default='cashfree',
+        help_text=_('Payment method selected for this order'),
         db_index=True
     )
     tax_percentage = models.DecimalField(
@@ -186,7 +199,17 @@ class Order(models.Model):
         super().save(*args, **kwargs)
     
     @classmethod
-    def create_order(cls, user, address, products_data, coupon_code=None, tax_percentage=None, notes=None):
+    def create_order(
+        cls,
+        user,
+        address,
+        products_data,
+        coupon_code=None,
+        tax_percentage=None,
+        notes=None,
+        payment_method='cashfree',
+        initial_status='pending'
+    ):
         """
         Class method to create an order with items
         
@@ -244,8 +267,9 @@ class Order(models.Model):
             coupon=applied_coupon,
             tax_percentage=tax_percentage or Decimal('5.00'), # Default tax percentage 5% if not provided
             notes=notes,
-            status='pending',
-            payment_status='pending'
+            status=initial_status or 'pending',
+            payment_status='pending',
+            payment_method=payment_method or 'cashfree'
         )
         
         # Create order items

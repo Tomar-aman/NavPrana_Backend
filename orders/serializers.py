@@ -62,9 +62,16 @@ class ProductDetailSerializer(serializers.ModelSerializer):
 
 class CreateOrderSerializer(serializers.Serializer):
     """Serializer for creating order and initiating payment"""
+    PAYMENT_METHOD_CHOICES = ('cashfree', 'cod')
+
     products = ProductItemSerializer(many=True)
     coupon_code = serializers.CharField(max_length=50, required=False, allow_blank=True)
     address_id = serializers.IntegerField(required=False)
+    payment_method = serializers.ChoiceField(
+        choices=PAYMENT_METHOD_CHOICES,
+        required=False,
+        default='cashfree'
+    )
     tax_percentage = serializers.DecimalField(
         max_digits=5, 
         decimal_places=2, 
@@ -151,6 +158,7 @@ class OrderListSerializer(serializers.ModelSerializer):
     """Serializer for order list (minimal data)"""
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     payment_status_display = serializers.CharField(source='get_payment_status_display', read_only=True)
+    payment_method_display = serializers.CharField(source='get_payment_method_display', read_only=True)
     items_count = serializers.SerializerMethodField()
     first_product_image = serializers.SerializerMethodField()
     
@@ -162,6 +170,8 @@ class OrderListSerializer(serializers.ModelSerializer):
             'status_display',
             'payment_status',
             'payment_status_display',
+            'payment_method',
+            'payment_method_display',
             'total_amount',
             'discount_amount',
             'tax_amount',
@@ -206,6 +216,7 @@ class OrderDetailSerializer(serializers.ModelSerializer):
     address = UserAddressSerializer(read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     payment_status_display = serializers.CharField(source='get_payment_status_display', read_only=True)
+    payment_method_display = serializers.CharField(source='get_payment_method_display', read_only=True)
     coupon_code = serializers.CharField(source='coupon.coupon_code', read_only=True, allow_null=True)
     invoice_url = serializers.SerializerMethodField()
     latest_transaction = serializers.SerializerMethodField()
@@ -218,6 +229,8 @@ class OrderDetailSerializer(serializers.ModelSerializer):
             'status_display',
             'payment_status',
             'payment_status_display',
+            'payment_method',
+            'payment_method_display',
             'address',
             'total_amount',
             'discount_amount',

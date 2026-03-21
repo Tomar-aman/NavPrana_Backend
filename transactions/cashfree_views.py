@@ -11,7 +11,7 @@ Handles:
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.db import transaction as db_transaction
 from django.shortcuts import redirect
 from decimal import Decimal
@@ -75,14 +75,46 @@ class CashfreeCreateOrderAndPaymentView(APIView):
             with db_transaction.atomic():
                 # Create order with items
                 # print(serializer.validated_data)
+                payment_method = serializer.validated_data.get('payment_method', 'cashfree')
                 order = Order.create_order(
                     user=user,
                     address= serializer.validated_data.get('address_id'),
                     products_data=serializer.validated_data['products'],
                     coupon_code=serializer.validated_data.get('coupon_code').upper().strip() if serializer.validated_data.get('coupon_code') else None,
                     tax_percentage=serializer.validated_data.get('tax_percentage'),
-                    notes=serializer.validated_data.get('notes')
+                    notes=serializer.validated_data.get('notes'),
+                    payment_method=payment_method,
+                    initial_status='accepted' if payment_method == 'cod' else 'pending'
                 )
+
+                if payment_method == 'cod':
+                    transaction_order_id = f"NAV_COD_ORDER_{order.id}"
+                    transaction_log = TransactionLog.create_cod_transaction(
+                        order=order,
+                        order_id=transaction_order_id,
+                        amount=order.final_amount
+                    )
+                    order.transaction_id = transaction_order_id
+                    order.save(update_fields=['transaction_id', 'updated_at'])
+
+                    return Response({
+                        'success': True,
+                        'order_id': order.id,
+                        'transaction_id': transaction_log.transaction_order_id,
+                        'payment_method': 'cod',
+                        'payment_status': order.payment_status,
+                        'requires_online_payment': False,
+                        'message': 'COD order created successfully',
+                        'order_summary': {
+                            'order_number': order.id,
+                            'total_amount': float(order.total_amount),
+                            'discount_amount': float(order.discount_amount),
+                            'tax_amount': float(order.tax_amount),
+                            'final_amount': float(order.final_amount),
+                            'currency': 'INR',
+                            'items_count': order.items.count()
+                        }
+                    }, status=status.HTTP_201_CREATED)
                 
                 # Initialize Cashfree service
                 cashfree_service = CashfreePaymentService()
@@ -131,8 +163,7 @@ class CashfreeCreateOrderAndPaymentView(APIView):
                 
                 # Update order with transaction ID
                 order.transaction_id = payment_response['order_id']
-                order.payment_method = 'cashfree'
-                order.save()
+                order.save(update_fields=['transaction_id', 'updated_at'])
                 
                 # Get payment URL
                 # payment_url = cashfree_service.get_payment_url(
@@ -143,6 +174,7 @@ class CashfreeCreateOrderAndPaymentView(APIView):
                     'success': True,
                     'order_id': order.id,
                     'transaction_id': payment_response['order_id'],
+                    'payment_method': 'cashfree',
                     'payment_session_id': payment_response['payment_session_id'],
                     # 'payment_url': payment_url,
                     # 'order_token': payment_response.get('order_token'),  # For SDK integration
