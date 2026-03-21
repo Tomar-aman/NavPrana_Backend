@@ -62,7 +62,12 @@ class ProductDetailSerializer(serializers.ModelSerializer):
 
 class CreateOrderSerializer(serializers.Serializer):
     """Serializer for creating order and initiating payment"""
-    PAYMENT_METHOD_CHOICES = ('cashfree', 'cod')
+    PAYMENT_METHOD_CHOICES = (
+        ('upi', 'UPI'),
+        ('netbanking', 'Net Banking'),
+        ('card', 'Card Payment'),
+        ('cod', 'Cash on Delivery')
+    )
 
     products = ProductItemSerializer(many=True)
     coupon_code = serializers.CharField(max_length=50, required=False, allow_blank=True)
@@ -70,7 +75,7 @@ class CreateOrderSerializer(serializers.Serializer):
     payment_method = serializers.ChoiceField(
         choices=PAYMENT_METHOD_CHOICES,
         required=False,
-        default='cashfree'
+        default='upi'
     )
     tax_percentage = serializers.DecimalField(
         max_digits=5, 

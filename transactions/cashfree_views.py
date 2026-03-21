@@ -75,7 +75,7 @@ class CashfreeCreateOrderAndPaymentView(APIView):
             with db_transaction.atomic():
                 # Create order with items
                 # print(serializer.validated_data)
-                payment_method = serializer.validated_data.get('payment_method', 'cashfree')
+                payment_method = serializer.validated_data.get('payment_method', 'upi')
                 order = Order.create_order(
                     user=user,
                     address= serializer.validated_data.get('address_id'),
