@@ -220,6 +220,7 @@ class OrderDetailSerializer(serializers.ModelSerializer):
     coupon_code = serializers.CharField(source='coupon.coupon_code', read_only=True, allow_null=True)
     invoice_url = serializers.SerializerMethodField()
     latest_transaction = serializers.SerializerMethodField()
+    handling_fee = serializers.SerializerMethodField()
     
     class Meta:
         model = Order
@@ -237,6 +238,7 @@ class OrderDetailSerializer(serializers.ModelSerializer):
             'coupon_code',
             'tax_percentage',
             'tax_amount',
+            'handling_fee',
             'final_amount',
             'transaction_id',
             'invoice_url',
@@ -274,6 +276,10 @@ class OrderDetailSerializer(serializers.ModelSerializer):
                 'updated_at': transaction.updated_at
             }
         return None
+
+    def get_handling_fee(self, obj):
+        """Return COD handling fee, else zero."""
+        return float(obj.get_handling_fee())
 
 
 class RefundSerializer(serializers.Serializer):

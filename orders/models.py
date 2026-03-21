@@ -187,11 +187,16 @@ class Order(models.Model):
         amount_after_discount = self.total_amount - self.discount_amount
         final = Decimal(str(round(amount_after_discount)))
 
-        if self.payment_method == 'cod':
-            final += self.COD_HANDLING_FEE
+        final += self.get_handling_fee()
 
         # final = amount_after_discount + self.tax_amount
         return max(final, Decimal('0.00'))
+
+    def get_handling_fee(self):
+        """Return handling fee based on payment method."""
+        if self.payment_method == 'cod':
+            return self.COD_HANDLING_FEE
+        return Decimal('0.00')
     
     def save(self, *args, **kwargs):
         # Calculate discount
