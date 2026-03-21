@@ -1,4 +1,5 @@
 from django.db import models
+from decimal import Decimal
 from config import settings
 from django.utils.translation import gettext_lazy as _
 from coupon.models import Coupon
@@ -6,6 +7,8 @@ from product.models import Product
 from users.models import UserAddress
 
 class Order(models.Model):
+    COD_HANDLING_FEE = Decimal('20.00')
+
     STATUS_CHOICES = (
         ('pending', 'Pending'),
         ('accepted', 'Accepted'),
@@ -21,6 +24,13 @@ class Order(models.Model):
         ('paid', 'Paid'),
         ('failed', 'Failed'),
         ('refunded', 'Refunded'),
+    )
+
+    PAYMENT_METHOD_CHOICES = (
+        ('upi', 'UPI'),
+        ('netbanking', 'Net Banking'),
+        ('card', 'Card Payment'),
+        ('cod', 'Cash on Delivery'),
     )
 
     user = models.ForeignKey(
@@ -86,6 +96,14 @@ class Order(models.Model):
         choices=PAYMENT_STATUS_CHOICES,
         default='pending',
         help_text=_('Current payment status of the order'),
+        db_index=True
+    )
+    payment_method = models.CharField(
+        _('payment method'),
+        max_length=20,
+        choices=PAYMENT_METHOD_CHOICES,
+        default='upi',
+        help_text=_('Payment method selected for this order'),
         db_index=True
     )
     tax_percentage = models.DecimalField(
@@ -169,9 +187,18 @@ class Order(models.Model):
     def calculate_final_amount(self):
         """Calculate final amount after discount and tax"""
         amount_after_discount = self.total_amount - self.discount_amount
-        final = round(amount_after_discount)
+        final = Decimal(str(round(amount_after_discount)))
+
+        final += self.get_handling_fee()
+
         # final = amount_after_discount + self.tax_amount
-        return max(final, 0)
+        return max(final, Decimal('0.00'))
+
+    def get_handling_fee(self):
+        """Return handling fee based on payment method."""
+        if self.payment_method == 'cod':
+            return self.COD_HANDLING_FEE
+        return Decimal('0.00')
     
     def save(self, *args, **kwargs):
         # Calculate discount
@@ -186,7 +213,17 @@ class Order(models.Model):
         super().save(*args, **kwargs)
     
     @classmethod
-    def create_order(cls, user, address, products_data, coupon_code=None, tax_percentage=None, notes=None):
+    def create_order(
+        cls,
+        user,
+        address,
+        products_data,
+        coupon_code=None,
+        tax_percentage=None,
+        notes=None,
+        payment_method='upi',
+        initial_status='pending'
+    ):
         """
         Class method to create an order with items
         
@@ -244,8 +281,9 @@ class Order(models.Model):
             coupon=applied_coupon,
             tax_percentage=tax_percentage or Decimal('5.00'), # Default tax percentage 5% if not provided
             notes=notes,
-            status='pending',
-            payment_status='pending'
+            status=initial_status or 'pending',
+            payment_status='pending',
+            payment_method=payment_method or 'cashfree'
         )
         
         # Create order items

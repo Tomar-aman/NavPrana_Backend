@@ -197,6 +197,13 @@ td, th { vertical-align: top; }
     <td class="text-right">Rs {{ order.tax_amount }}</td>
 </tr>
 
+{% if order.get_handling_fee > 0 %}
+<tr>
+    <td>Handling Fee (COD)</td>
+    <td class="text-right">Rs {{ order.get_handling_fee }}</td>
+</tr>
+{% endif %}
+
 <tr class="summary-total">
     <td>Grand Total (Inclusive of GST)</td>
     <td class="text-right">Rs {{ order.final_amount }}</td>
