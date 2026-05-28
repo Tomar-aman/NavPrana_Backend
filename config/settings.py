@@ -80,6 +80,7 @@ INSTALLED_APPS = [
     'transactions',
     'lab_report',
     'blogs',
+    'public_data',
     # 'notification',
     
 ]
