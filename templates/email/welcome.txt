@@ -9,6 +9,9 @@ Your Account Information:
 - Email: {{ user.email }}
 - Account Created: {{ user.date_joined|date:"F d, Y" }}
 
+Your Welcome Offer:
+Use coupon code {{ coupon_code }} to get {{ coupon_discount_percent }}% off on your first order.
+
 You can now start shopping and enjoy our premium collection of natural products.
 
 Get Started: {{ frontend_url }}/products

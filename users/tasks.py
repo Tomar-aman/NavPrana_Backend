@@ -14,7 +14,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-# @shared_task(bind=True, max_retries=3)
+@shared_task(bind=True, max_retries=3)
 def send_welcome_email(self, user_id):
     """
     Send welcome email to new user
@@ -29,6 +29,8 @@ def send_welcome_email(self, user_id):
         
         context = {
             'user': user,
+            'coupon_code': 'WELCOME10',
+            'coupon_discount_percent': 10,
             'site_url': settings.SITE_URL,
             'frontend_url': settings.FRONTEND_URL,
         }

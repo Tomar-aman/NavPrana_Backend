@@ -5,6 +5,8 @@ from users.models import UserAddress
 from users.serializers import FacebookAuthSerializer, LogoutSerializer, SignupSerializer, OTPVerificationSerializer, ResendOTPSerializer, UserDetailsSerializer, LoginSerializer, ForgotPasswordOTPSerializer, ForgotPasswordOtpVerifySerializer, ForgotPasswordResetSerializer, GoogleAuthSerializer, ChangePasswordSerializer, UserAddressSerializer
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError, AccessToken
+from django.db import transaction
+from users.tasks import send_welcome_email
 
 class SignupView(GenericAPIView):
     permission_classes = [AllowAny]
@@ -40,6 +42,7 @@ class OTPVerifyView(GenericAPIView):
         if serializer.is_valid():
             user = serializer.save()
             refresh = RefreshToken.for_user(user)
+            transaction.on_commit(lambda: send_welcome_email.delay(user.id))
             user_data = SignupSerializer(user).data
             user_data["refresh"] = str(refresh)
             user_data["access"] = str(refresh.access_token)
@@ -121,6 +124,8 @@ class GoogleLoginView(GenericAPIView):
             "Signup successful. Welcome!" if is_new_user
             else "Login successful. Welcome back!"
         )
+        if is_new_user:
+            transaction.on_commit(lambda: send_welcome_email.delay(user.id))
 
         return Response(user_data, status=status.HTTP_200_OK)
 
@@ -148,6 +153,8 @@ class FacebookLoginView(GenericAPIView):
             "Signup successful. Welcome!" if is_new_user
             else "Login successful. Welcome back!"
         )
+        if is_new_user:
+            transaction.on_commit(lambda: send_welcome_email.delay(user.id))
 
         return Response(user_data, status=status.HTTP_200_OK)
 
