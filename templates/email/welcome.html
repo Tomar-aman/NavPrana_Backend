@@ -8,6 +8,8 @@
         .header { background-color: #4CAF50; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
         .content { border: 1px solid #ddd; padding: 20px; border-radius: 0 0 5px 5px; }
         .info-box { background-color: #f9f9f9; padding: 15px; margin: 15px 0; border-left: 4px solid #4CAF50; }
+        .coupon-box { background-color: #fff8e1; border: 1px dashed #f0ad4e; padding: 18px; margin: 20px 0; text-align: center; border-radius: 5px; }
+        .coupon-code { display: inline-block; font-size: 24px; font-weight: bold; letter-spacing: 2px; color: #2e7d32; padding: 8px 16px; border: 2px solid #2e7d32; border-radius: 4px; background-color: #ffffff; }
         .button { display: inline-block; background-color: #4CAF50; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin-top: 15px; }
         .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
     </style>
@@ -27,6 +29,12 @@
                 <p><strong>Your Account Information:</strong></p>
                 <p>Email: {{ user.email }}</p>
                 <p>Account Created: {{ user.date_joined|date:"F d, Y" }}</p>
+            </div>
+            
+            <div class="coupon-box">
+                <p><strong>Here is your welcome offer:</strong></p>
+                <p>Use coupon code below to get {{ coupon_discount_percent }}% off on your first order.</p>
+                <p class="coupon-code">{{ coupon_code }}</p>
             </div>
             
             <p>You can now start shopping and enjoy our premium collection of natural products.</p>
