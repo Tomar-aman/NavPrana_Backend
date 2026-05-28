@@ -35,27 +35,12 @@ def send_welcome_email(self, user_id):
             'frontend_url': settings.FRONTEND_URL,
         }
         
-        # Render email template
-        html_message = render_to_string(
-            'email/welcome.html',
-            context
-        )
-        text_message = render_to_string(
-            'email/welcome.txt',
-            context
-        )
-        
-        # Create email
-        email = EmailMultiAlternatives(
+        send_mail_util(
             subject='Welcome to NavPrana!',
-            body=text_message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            to=[user.email]
+            email_template_name='email/welcome.html',
+            context=context,
+            to_email=user.email,
         )
-        email.attach_alternative(html_message, "text/html")
-        
-        # Send email
-        email.send(fail_silently=False)
         
         logger.info(f'Welcome email sent to user {user_id}')
         return True
