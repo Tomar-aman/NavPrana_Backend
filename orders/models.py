@@ -260,7 +260,38 @@ class Order(models.Model):
             try:
                 applied_coupon = Coupon.objects.get(coupon_code=coupon_code)
             except Coupon.DoesNotExist:
-                raise ValueError("Invalid coupon code")
+                from coupon.models import TempCoupon
+                try:
+                    temp = TempCoupon.objects.get(coupon_code=coupon_code, user=user, is_used=False)
+                    # Convert TempCoupon to a permanent database Coupon to satisfy the Order ForeignKey schema
+                    if temp.coupon_code.startswith("NAV-FREE500-"):
+                        from cart.models import Cart
+                        cart_items = Cart.objects.filter(user=user, product__size='500ml')
+                        discount_val = cart_items.first().product.price if cart_items.exists() else Decimal('1119.00')
+                        applied_coupon = Coupon.objects.create(
+                            coupon_code=coupon_code,
+                            discount_type='amount',
+                            amount=discount_val,
+                            max_use=1,
+                            uses_per_user=1,
+                            status=True
+                        )
+                    else:
+                        applied_coupon = Coupon.objects.create(
+                            coupon_code=coupon_code,
+                            discount_type=temp.discount_type,
+                            amount=temp.amount,
+                            percent=temp.percent,
+                            free_shipping=temp.free_shipping,
+                            max_use=1,
+                            uses_per_user=1,
+                            status=True
+                        )
+                    # Mark temp coupon as used
+                    temp.is_used = True
+                    temp.save()
+                except TempCoupon.DoesNotExist:
+                    raise ValueError("Invalid coupon code")
         
         # Resolve address
         if isinstance(address, int):
