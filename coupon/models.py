@@ -286,6 +286,11 @@ class UserSpinLimit(models.Model):
         related_name='spin_limit',
         verbose_name=_('User')
     )
+    spin_count = models.PositiveIntegerField(
+        verbose_name=_('Spin Count'),
+        default=0,
+        help_text=_('Number of times the user has spun today')
+    )
     last_spin_date = models.DateField(
         verbose_name=_('Last Spin Date'),
         null=True,

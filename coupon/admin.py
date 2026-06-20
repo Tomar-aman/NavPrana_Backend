@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Coupon, CouponUsage
+from .models import Coupon, CouponUsage, TempCoupon, UserSpinLimit
 
 @admin.register(Coupon)
 class CouponAdmin(admin.ModelAdmin):
@@ -59,3 +59,33 @@ class CouponUsageAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
+
+@admin.register(TempCoupon)
+class TempCouponAdmin(admin.ModelAdmin):
+    list_display = ['id', 'coupon_code', 'amount', 'percent', 'start_date', 'end_date',]
+    list_filter = ['start_date', 'end_date']
+    search_fields = ['coupon_code']
+    readonly_fields = ['id', 'created_at',]
+
+    fieldsets = (
+        ('Coupon Information', {
+            'fields': ('coupon_code','minimum_cart_amount','discount_type')
+        }),
+        ('Discount Details', {
+            'fields': ('amount', 'percent')
+        }),
+        ('Validity Period', {
+            'fields': ('start_date', 'end_date')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at',),
+            'classes': ('collapse',)
+        }),
+    )
+
+@admin.register(UserSpinLimit)
+class UserSpinLimitAdmin(admin.ModelAdmin):
+    list_display = ['id', 'last_spin_date', 'spin_count', 'user']
+    search_fields = ['user__full_name']
+    readonly_fields = ['id', 'user', 'last_spin_date']
+    list_filter = ['last_spin_date']

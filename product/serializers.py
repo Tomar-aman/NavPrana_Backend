@@ -26,6 +26,7 @@ class ProductReviewMediaSerializer(serializers.ModelSerializer):
 
 class ProductReviewSerializer(serializers.ModelSerializer):
     media = ProductReviewMediaSerializer(many=True, read_only=True)
+    user_email = serializers.SerializerMethodField()
     
     # For creating review with media files
     # Accepts a list of files in the request
@@ -46,8 +47,13 @@ class ProductReviewSerializer(serializers.ModelSerializer):
             'media',
             'media_files',
             'created_at',
+            'user_email',
         )
-        read_only_fields = ('id', 'created_at')
+        read_only_fields = ('id', 'created_at', 'user_email')
+
+    def get_user_email(self, obj):
+        return obj.user.email
+
 
     def validate(self, attrs):
         user = self.context['request'].user
