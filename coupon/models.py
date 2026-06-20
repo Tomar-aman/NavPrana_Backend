@@ -193,3 +193,119 @@ class CouponUsage(models.Model):
 
     def __str__(self):
         return f"{self.coupon.coupon_code} - {self.user.username}"
+
+
+class TempCoupon(models.Model):
+    DISCOUNT_TYPE_CHOICES = (
+        ('amount', 'Fixed Amount'),
+        ('percent', 'Percentage'),
+        ('shipping', 'Free Shipping'),
+    )
+
+    coupon_code = models.CharField(
+        verbose_name=_('Coupon Code'),
+        max_length=255,
+        unique=True,
+        db_index=True
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='temp_coupons',
+        verbose_name=_('User')
+    )
+    discount_type = models.CharField(
+        max_length=20,
+        choices=DISCOUNT_TYPE_CHOICES,
+        default='amount',
+        verbose_name=_('Discount Type')
+    )
+    amount = models.DecimalField(
+        verbose_name=_('Fixed Amount'),
+        default=0.00,
+        max_digits=15,
+        decimal_places=2,
+        validators=[MinValueValidator(0.00)]
+    )
+    percent = models.DecimalField(
+        verbose_name=_('Percentage'),
+        default=0.00,
+        max_digits=5,
+        decimal_places=2,
+        validators=[MinValueValidator(0.00), MaxValueValidator(100.00)]
+    )
+    free_shipping = models.BooleanField(
+        default=False,
+        verbose_name=_('Free Shipping')
+    )
+    is_used = models.BooleanField(
+        verbose_name=_('Is Used'),
+        default=False
+    )
+    start_date = models.DateField(
+        verbose_name=_('Start Date'),
+        default=timezone.now
+    )
+    end_date = models.DateField(
+        verbose_name=_('End Date'),
+        null=True,
+        blank=True
+    )
+    created_at = models.DateTimeField(
+        _('created at'),
+        auto_now_add=True,
+        db_index=True
+    )
+
+    class Meta:
+        verbose_name = _("Temporary Coupon")
+        verbose_name_plural = _("Temporary Coupons")
+        db_table = "temp_coupon"
+
+    def __str__(self):
+        return f"{self.coupon_code} - {self.user.email} (Used: {self.is_used})"
+
+    def clean(self):
+        if not self.free_shipping and self.amount == 0 and self.percent == 0:
+            raise ValidationError(_("Either amount or percent must be greater than 0 for non-free shipping coupons."))
+        if self.amount > 0 and self.percent > 0:
+            raise ValidationError(_("Cannot have both fixed amount and percentage discount"))
+        if self.end_date and self.start_date and self.end_date < self.start_date:
+            raise ValidationError(_("End date must be after start date"))
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        self.coupon_code = self.coupon_code.upper().strip()
+        super().save(*args, **kwargs)
+
+
+class UserSpinLimit(models.Model):
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='spin_limit',
+        verbose_name=_('User')
+    )
+    spin_count = models.PositiveIntegerField(
+        verbose_name=_('Spin Count'),
+        default=0,
+        help_text=_('Number of times the user has spun today')
+    )
+    last_spin_date = models.DateField(
+        verbose_name=_('Last Spin Date'),
+        null=True,
+        blank=True
+    )
+    allowed_by_admin = models.BooleanField(
+        verbose_name=_('Allowed By Admin'),
+        default=False,
+        help_text=_('If True, allows user to spin again on the same day')
+    )
+
+    class Meta:
+        verbose_name = _("User Spin Limit")
+        verbose_name_plural = _("User Spin Limits")
+        db_table = "user_spin_limit"
+
+    def __str__(self):
+        return f"{self.user.email} - Last Spin: {self.last_spin_date}"
