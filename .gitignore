@@ -9,6 +9,7 @@ ENV/
 
 # Media and Static files
 media/
+staticfiles/
 
 # Python
 *.py[cod]
