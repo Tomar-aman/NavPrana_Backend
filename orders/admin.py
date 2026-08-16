@@ -2,6 +2,7 @@ import logging
 
 from django.contrib import admin, messages
 from django.http import HttpResponse
+from django.utils.html import format_html
 
 from .invoice_utils import generate_and_merge_invoices_pdf
 from .models import Order, OrderItem
@@ -14,20 +15,31 @@ class OrderItemInline(admin.TabularInline):
     extra = 0
     readonly_fields = ('product', 'quantity', 'price', 'created_at')
 
+
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'status', 'final_amount', 'total_amount', 'created_at', 'updated_at')
-    list_filter = ('status', 'created_at', 'updated_at')
-    search_fields = ('user__email', 'user__first_name', 'user__last_name', 'id')
-    readonly_fields = ('created_at', 'updated_at')
+    list_display = ('id', 'user', 'status', 'courier', 'awb_number', 'final_amount', 'total_amount', 'created_at', 'updated_at')
+    list_filter = ('status', 'courier', 'created_at', 'updated_at')
+    search_fields = ('user__email', 'user__first_name', 'user__last_name', 'id', 'awb_number')
+    readonly_fields = ('created_at', 'updated_at', 'track_link')
     ordering = ('-created_at',)
     date_hierarchy = 'created_at'
     actions = ('download_all_invoices_single_pdf',)
     fieldsets = (
-        (None, {'fields': ('user','address', 'status','payment_status' , 'payment_method' , 'final_amount', 'total_amount','tax_percentage','tax_amount', 'discount_amount',  'coupon', 'transaction_id','invoice',)}),
+        (None, {'fields': ('user','address', 'status','payment_status' , 'payment_method' , 'final_amount', 'total_amount','tax_percentage','tax_amount', 'shipping_fee', 'discount_amount',  'coupon', 'transaction_id','invoice',)}),
+        ('Shipping', {'fields': ('courier', 'awb_number', 'track_link')}),
         ('Timestamps', {'fields': ('created_at', 'updated_at')}),
     )
     inlines = [OrderItemInline]
+
+    @admin.display(description='Tracking link')
+    def track_link(self, obj):
+        if not obj.tracking_url:
+            return '—'
+        return format_html(
+            '<a href="{}" target="_blank" rel="noopener">Track on {} website</a>',
+            obj.tracking_url, obj.courier_label
+        )
 
     @admin.action(description='Download selected invoices as a single PDF')
     def download_all_invoices_single_pdf(self, request, queryset):
@@ -76,3 +88,4 @@ class OrderAdmin(admin.ModelAdmin):
                 level=messages.ERROR,
             )
             return None
+

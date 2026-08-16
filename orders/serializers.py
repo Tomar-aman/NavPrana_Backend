@@ -166,7 +166,9 @@ class OrderListSerializer(serializers.ModelSerializer):
     payment_method_display = serializers.CharField(source='get_payment_method_display', read_only=True)
     items_count = serializers.SerializerMethodField()
     first_product_image = serializers.SerializerMethodField()
-    
+    courier_label = serializers.CharField(read_only=True)
+    tracking_url = serializers.CharField(read_only=True)
+
     class Meta:
         model = Order
         fields = [
@@ -180,14 +182,19 @@ class OrderListSerializer(serializers.ModelSerializer):
             'total_amount',
             'discount_amount',
             'tax_amount',
+            'shipping_fee',
             'final_amount',
             'items_count',
             'first_product_image',
+            'courier',
+            'courier_label',
+            'awb_number',
+            'tracking_url',
             'created_at',
             'updated_at'
         ]
         read_only_fields = fields
-    
+
     def get_items_count(self, obj):
         """Get total number of items in order"""
         return obj.items.count()
@@ -226,7 +233,9 @@ class OrderDetailSerializer(serializers.ModelSerializer):
     invoice_url = serializers.SerializerMethodField()
     latest_transaction = serializers.SerializerMethodField()
     handling_fee = serializers.SerializerMethodField()
-    
+    courier_label = serializers.CharField(read_only=True)
+    tracking_url = serializers.CharField(read_only=True)
+
     class Meta:
         model = Order
         fields = [
@@ -243,11 +252,16 @@ class OrderDetailSerializer(serializers.ModelSerializer):
             'coupon_code',
             'tax_percentage',
             'tax_amount',
+            'shipping_fee',
             'handling_fee',
             'final_amount',
             'transaction_id',
             'invoice_url',
             'notes',
+            'courier',
+            'courier_label',
+            'awb_number',
+            'tracking_url',
             'created_at',
             'updated_at',
             'items',

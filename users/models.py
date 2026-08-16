@@ -79,6 +79,15 @@ class User(AbstractUser):
         default=False,
         help_text=_('Designates whether the user has verified their phone number.')
     )
+    is_guest = models.BooleanField(
+        _('guest account'),
+        default=False,
+        help_text=_(
+            'Account created silently during guest checkout. It has no usable '
+            'password, so guest checkout may sign it in from an email/phone '
+            'alone. Clears once the customer sets a password.'
+        )
+    )
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['first_name', 'last_name']
