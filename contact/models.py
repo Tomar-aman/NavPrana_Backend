@@ -39,7 +39,10 @@ class SendUsQuery(BaseModel):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"Query from {self.name} - Subject: {self.subject}"
+        # ``self.name`` was referenced here but no such field exists, so any
+        # str() of a query raised AttributeError - including the Django admin
+        # change page and every LogEntry written for one.
+        return f"Query from {self.first_name} {self.last_name} - Subject: {self.subject}"
 
 class PhoneNumber(BaseModel):
     phone_number = models.CharField(

@@ -1,0 +1,65 @@
+{% extends 'panel/base.html' %}
+{% load panel_tags %}
+
+{% block page_actions %}
+  <a class="btn btn--subtle" href="{% url 'admin_panel:password_change' %}">{% panel_icon 'key' 15 %} Change password</a>
+{% endblock %}
+
+{% block content %}
+  <form method="post" enctype="multipart/form-data" class="form-layout" novalidate data-dirty-guard>
+    {% csrf_token %}
+
+    <div class="form-main">
+      {% if form.non_field_errors %}
+        <div class="flash flash--error">
+          {% panel_icon 'alert' 17 %}
+          <div>{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+        </div>
+      {% endif %}
+
+      <section class="card">
+        <h2 class="card__title">Your details</h2>
+        <div class="field-grid">
+          {% for field in form %}
+            {% include 'panel/partials/form_field.html' with field=field %}
+          {% endfor %}
+        </div>
+      </section>
+    </div>
+
+    <aside class="form-side">
+      <div class="card card--sticky">
+        <div class="profile-summary">
+          {% if request.user.profile_picture %}
+            <img src="{{ request.user.profile_picture.url }}" alt="" class="avatar avatar--lg avatar--img">
+          {% else %}
+            <span class="avatar avatar--lg">{{ request.user|initials }}</span>
+          {% endif %}
+          <p class="profile-summary__name">{{ request.user|display_name }}</p>
+          <p class="profile-summary__email">{{ request.user.email }}</p>
+        </div>
+
+        <dl class="datalist datalist--tight">
+          <div class="datalist__row"><dt>Access level</dt>
+            <dd>{% if request.user.is_superuser %}<span class="badge badge--purple">Superuser</span>{% else %}<span class="badge badge--info">Staff</span>{% endif %}</dd></div>
+          <div class="datalist__row"><dt>Roles</dt>
+            <dd>
+              {% for group in groups %}<span class="badge badge--neutral">{{ group.name }}</span>{% empty %}
+                <span class="muted">{% if request.user.is_superuser %}All permissions{% else %}None assigned{% endif %}</span>
+              {% endfor %}
+            </dd></div>
+          <div class="datalist__row"><dt>Last sign-in</dt>
+            <dd>{{ request.user.last_login|date:"j M Y, H:i"|default:"—" }}</dd></div>
+          <div class="datalist__row"><dt>Member since</dt>
+            <dd>{{ request.user.date_joined|date:"j M Y" }}</dd></div>
+        </dl>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn--primary btn--block" data-loading="Saving…">
+            {% panel_icon 'check' 16 %} Save profile
+          </button>
+        </div>
+      </div>
+    </aside>
+  </form>
+{% endblock %}

@@ -71,7 +71,7 @@ INSTALLED_APPS = [
     # Project apps
     'users',
     'product',
-    # 'admin_panel',
+    'admin_panel',
     'api_settings',
     'contact',
     'coupon',

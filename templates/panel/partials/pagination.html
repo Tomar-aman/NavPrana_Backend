@@ -1,0 +1,48 @@
+{% load panel_tags %}
+{% if page_obj %}
+  <div class="pagination">
+    <p class="pagination__summary">
+      Showing <strong>{{ page_obj.start_index }}–{{ page_obj.end_index }}</strong>
+      of <strong>{{ paginator.count|thousands }}</strong>
+    </p>
+
+    {% if paginator.num_pages > 1 %}
+      <nav class="pager" aria-label="Pagination">
+        {% if prev_url %}
+          <a class="pager__step" href="{{ prev_url }}" rel="prev" aria-label="Previous page">{% panel_icon 'chevron-left' 16 %}</a>
+        {% else %}
+          <span class="pager__step is-disabled" aria-hidden="true">{% panel_icon 'chevron-left' 16 %}</span>
+        {% endif %}
+
+        {% for link in page_links %}
+          {% if link.is_gap %}
+            <span class="pager__gap">{{ link.label }}</span>
+          {% elif link.is_current %}
+            <span class="pager__page is-current" aria-current="page">{{ link.label }}</span>
+          {% else %}
+            <a class="pager__page" href="{{ link.url }}">{{ link.label }}</a>
+          {% endif %}
+        {% endfor %}
+
+        {% if next_url %}
+          <a class="pager__step" href="{{ next_url }}" rel="next" aria-label="Next page">{% panel_icon 'chevron-right' 16 %}</a>
+        {% else %}
+          <span class="pager__step is-disabled" aria-hidden="true">{% panel_icon 'chevron-right' 16 %}</span>
+        {% endif %}
+      </nav>
+    {% endif %}
+
+    {% if page_size_urls %}
+      <div class="pagination__size">
+        <span>Rows</span>
+        {% for size in page_sizes %}
+          {% if size == current_page_size %}
+            <span class="chip is-active">{{ size }}</span>
+          {% else %}
+            <a class="chip" href="{{ page_size_urls|get_item:size }}">{{ size }}</a>
+          {% endif %}
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+{% endif %}

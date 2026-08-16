@@ -1,0 +1,26 @@
+{% extends 'panel/base.html' %}
+{% load panel_tags %}
+
+{% block page_actions %}
+  <a class="btn btn--ghost" href="{{ list_url }}">{% panel_icon 'chevron-left' 15 %} Back</a>
+  {% if can_edit %}<a class="btn btn--primary" href="{{ edit_url }}">{% panel_icon 'edit' 15 %} Edit</a>{% endif %}
+  {% if can_delete %}<a class="btn btn--danger-ghost" href="{{ delete_url }}">{% panel_icon 'trash' 15 %} Delete</a>{% endif %}
+{% endblock %}
+
+{% block content %}
+  <div class="detail-grid">
+    {% for panel in panels %}
+      <section class="card">
+        <h2 class="card__title">{{ panel.title }}</h2>
+        <dl class="datalist">
+          {% for row in panel.rows %}
+            <div class="datalist__row">
+              <dt>{{ row.label }}</dt>
+              <dd>{% include 'panel/partials/cell.html' with cell=row.cell %}</dd>
+            </div>
+          {% endfor %}
+        </dl>
+      </section>
+    {% endfor %}
+  </div>
+{% endblock %}

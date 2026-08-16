@@ -1,0 +1,22 @@
+{% load panel_tags %}{% spaceless %}
+{% if cell.kind == 'badge' %}
+  <span class="badge badge--{{ cell.tone }}">{{ cell.display }}</span>
+{% elif cell.kind == 'bool' %}
+  <span class="bool bool--{{ cell.tone }}" title="{{ cell.display }}">
+    {% if cell.tone == 'success' %}{% panel_icon 'check' 14 %}{% else %}{% panel_icon 'x' 14 %}{% endif %}
+    <span class="sr-only">{{ cell.display }}</span>
+  </span>
+{% elif cell.kind == 'image' %}
+  {% if cell.is_empty %}<span class="thumb thumb--empty">{% panel_icon 'image' 15 %}</span>
+  {% else %}<img class="thumb" src="{{ cell.url }}" alt="" loading="lazy" width="40" height="40">{% endif %}
+{% elif cell.kind == 'file' %}
+  {% if cell.is_empty %}<span class="muted">{{ cell.display }}</span>
+  {% else %}<a class="link link--file" href="{{ cell.url }}" target="_blank" rel="noopener">{% panel_icon 'file' 14 %}{{ cell.display }}</a>{% endif %}
+{% elif cell.kind == 'empty' %}
+  <span class="muted">{{ cell.display }}</span>
+{% elif cell.url %}
+  <a class="link" href="{{ cell.url }}" title="{{ cell.title }}">{{ cell.display }}</a>
+{% else %}
+  <span title="{{ cell.title }}">{{ cell.display }}</span>
+{% endif %}
+{% endspaceless %}

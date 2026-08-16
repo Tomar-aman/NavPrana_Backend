@@ -1,0 +1,174 @@
+{% extends 'panel/base.html' %}
+{% load panel_tags %}
+
+{% block page_actions %}
+  <a class="btn btn--ghost" href="{{ list_url }}">{% panel_icon 'chevron-left' 15 %} Back</a>
+  {% if object.invoice %}
+    <a class="btn btn--subtle" href="{{ object.invoice.url }}" target="_blank" rel="noopener">
+      {% panel_icon 'file' 15 %} Invoice
+    </a>
+  {% endif %}
+  {% if can_edit %}<a class="btn btn--primary" href="{{ edit_url }}">{% panel_icon 'edit' 15 %} Edit order</a>{% endif %}
+{% endblock %}
+
+{% block content %}
+  <div class="order-head">
+    <span class="badge badge--{{ status_tone }} badge--lg">{{ object.get_status_display }}</span>
+    <span class="badge badge--{{ payment_tone }} badge--lg">Payment: {{ object.get_payment_status_display }}</span>
+    <span class="muted">Placed {{ object.created_at|date:"j M Y, H:i" }}</span>
+    {% if object.transaction_id %}<span class="muted">· Txn {{ object.transaction_id }}</span>{% endif %}
+  </div>
+
+  <div class="order-grid">
+    <div class="stack">
+      <section class="card card--flush">
+        <div class="card__head card__head--padded">
+          <h2 class="card__title">Items</h2>
+          <span class="muted">{{ item_count }} unit{{ item_count|pluralize }}</span>
+        </div>
+        {% if items %}
+          <div class="table-wrap">
+            <table class="table table--compact">
+              <thead>
+                <tr><th>Product</th><th class="align-right">Unit price</th><th class="align-right">Qty</th><th class="align-right">Line total</th></tr>
+              </thead>
+              <tbody>
+                {% for item in items %}
+                  <tr>
+                    <td>
+                      <span class="cell-title">{{ item.product.name|default:"Removed product" }}</span>
+                      {% if item.product.size %}<span class="muted"> · {{ item.product.size }}</span>{% endif %}
+                    </td>
+                    <td class="align-right">{{ item.price|rupees }}</td>
+                    <td class="align-right">{{ item.quantity }}</td>
+                    <td class="align-right"><strong>{{ item.total_price|rupees }}</strong></td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          {% include 'panel/partials/empty_state.html' with icon='box' title='No line items' body='This order has no items recorded against it.' %}
+        {% endif %}
+      </section>
+
+      <section class="card">
+        <h2 class="card__title">Payment attempts</h2>
+        {% if transactions %}
+          <ul class="timeline">
+            {% for row in transactions %}
+              <li>
+                <span class="timeline__dot timeline__dot--{{ row.tone }}"></span>
+                <div class="timeline__body">
+                  <p class="timeline__text">
+                    <strong>{{ row.obj.get_status_display }}</strong> ·
+                    {{ row.obj.get_payment_method_display }} · {{ row.obj.amount|rupees }}
+                  </p>
+                  <p class="timeline__meta">
+                    {{ row.obj.transaction_order_id|default:"No reference" }}
+                    {% if row.obj.gateway_payment_id %} · gateway {{ row.obj.gateway_payment_id }}{% endif %}
+                    · {{ row.obj.created_at|date:"j M Y, H:i" }}
+                  </p>
+                  {% if row.obj.error_message %}
+                    <p class="timeline__error">{% panel_icon 'alert' 13 %} {{ row.obj.error_message|truncatechars:160 }}</p>
+                  {% endif %}
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="muted">No payment attempts have been recorded for this order.</p>
+        {% endif %}
+      </section>
+    </div>
+
+    <div class="stack">
+      <section class="card">
+        <h2 class="card__title">Summary</h2>
+        <dl class="totals">
+          <div><dt>Subtotal</dt><dd>{{ object.total_amount|rupees }}</dd></div>
+          {% if object.discount_amount %}
+            <div><dt>Discount{% if object.coupon %} · {{ object.coupon.coupon_code }}{% endif %}</dt>
+                <dd class="totals__minus">−{{ object.discount_amount|rupees }}</dd></div>
+          {% endif %}
+          <div><dt>Shipping</dt>
+              <dd>{% if object.shipping_fee %}{{ object.shipping_fee|rupees }}{% else %}Free{% endif %}</dd></div>
+          {% if handling_fee %}
+            <div><dt>COD handling</dt><dd>{{ handling_fee|rupees }}</dd></div>
+          {% endif %}
+          {% if object.tax_amount %}
+            <div><dt>Tax ({{ object.tax_percentage|floatformat:"-2" }}%)</dt><dd>{{ object.tax_amount|rupees }}</dd></div>
+          {% endif %}
+          <div class="totals__grand"><dt>Total</dt><dd>{{ object.final_amount|rupees }}</dd></div>
+        </dl>
+        <p class="card__note">Paid by {{ object.get_payment_method_display }}.</p>
+      </section>
+
+      <section class="card">
+        <h2 class="card__title">Customer</h2>
+        <dl class="datalist datalist--tight">
+          <div class="datalist__row"><dt>Name</dt><dd>{{ object.user.first_name }} {{ object.user.last_name }}</dd></div>
+          <div class="datalist__row"><dt>Email</dt><dd>{{ object.user.email|default:"—" }}</dd></div>
+          <div class="datalist__row"><dt>Phone</dt><dd>{{ object.user.phone_number|default:"—" }}</dd></div>
+        </dl>
+        {% if object.address %}
+          <h3 class="card__subtitle">Shipping address</h3>
+          <address class="address">
+            {{ object.address.address_line1 }}<br>
+            {% if object.address.address_line2 %}{{ object.address.address_line2 }}<br>{% endif %}
+            {{ object.address.city }}, {{ object.address.state }} {{ object.address.postal_code }}<br>
+            {{ object.address.country }}
+          </address>
+        {% else %}
+          <p class="muted">No shipping address is attached to this order.</p>
+        {% endif %}
+      </section>
+
+      <section class="card">
+        <h2 class="card__title">Shipping</h2>
+        {% if object.courier %}
+          <dl class="datalist datalist--tight">
+            <div class="datalist__row"><dt>Courier</dt><dd>{{ courier_label }}</dd></div>
+            <div class="datalist__row"><dt>AWB</dt><dd><code>{{ object.awb_number }}</code></dd></div>
+          </dl>
+          {% if tracking_url %}
+            <a class="btn btn--subtle btn--block" href="{{ tracking_url }}" target="_blank" rel="noopener">
+              {% panel_icon 'truck' 15 %} Track on {{ courier_label }} {% panel_icon 'external' 13 %}
+            </a>
+          {% endif %}
+        {% else %}
+          <p class="muted">No courier assigned yet.</p>
+          {% if can_edit %}
+            <a class="btn btn--subtle btn--block" href="{{ edit_url }}">{% panel_icon 'truck' 15 %} Add tracking details</a>
+          {% endif %}
+        {% endif %}
+      </section>
+
+      {% if can_edit %}
+        <section class="card">
+          <h2 class="card__title">Move to status</h2>
+          <p class="card__note">Marking an order shipped needs courier details, so it is done from the edit form.</p>
+          <form method="post" action="{{ quick_status_url }}" class="status-actions">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            {% for value, label, tone in status_choices %}
+              {% if value != object.status and value != 'shipped' %}
+                <button type="submit" name="status" value="{{ value }}" class="chip chip--action chip--{{ tone }}"
+                        data-confirm="Move order #{{ object.pk }} to {{ label }}?" data-loading="…">
+                  {{ label }}
+                </button>
+              {% endif %}
+            {% endfor %}
+          </form>
+        </section>
+      {% endif %}
+
+      {% if object.notes %}
+        <section class="card">
+          <h2 class="card__title">Internal notes</h2>
+          <p class="notes">{{ object.notes|linebreaksbr }}</p>
+        </section>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

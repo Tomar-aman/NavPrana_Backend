@@ -1,0 +1,227 @@
+{% extends 'panel/base.html' %}
+{% load panel_tags %}
+
+{% block content %}
+  <section class="kpi-grid">
+    {% for kpi in kpis %}
+      <article class="kpi kpi--{{ kpi.tone }}">
+        <div class="kpi__head">
+          <span class="kpi__icon">{% panel_icon kpi.icon 18 %}</span>
+          <p class="kpi__label">{{ kpi.label }}</p>
+        </div>
+        <p class="kpi__value">
+          {% if kpi.format == 'currency' %}{{ kpi.value|rupees }}{% else %}{{ kpi.value|thousands }}{% endif %}
+        </p>
+        <div class="kpi__foot">
+          <span class="kpi__sub">{{ kpi.sub }}</span>
+          {% if kpi.delta is not None %}
+            <span class="trend {% if kpi.delta >= 0 %}trend--up{% else %}trend--down{% endif %}">
+              {% if kpi.delta >= 0 %}{% panel_icon 'chevron-up' 12 %}{% else %}{% panel_icon 'chevron-down' 12 %}{% endif %}
+              {{ kpi.delta|percent_display }}
+            </span>
+          {% endif %}
+        </div>
+      </article>
+    {% endfor %}
+  </section>
+
+  {% if revenue_series %}
+    <section class="card">
+      <div class="card__head">
+        <div>
+          <h2 class="card__title">Revenue and orders</h2>
+          <p class="card__note">Paid orders over the last 12 months</p>
+        </div>
+        <div class="legend">
+          <span class="legend__item"><i class="swatch swatch--brand"></i> Revenue</span>
+          <span class="legend__item"><i class="swatch swatch--accent"></i> Orders</span>
+        </div>
+      </div>
+      <div class="chart chart--line" data-chart="revenue" data-chart-source="chart-data" aria-label="Revenue and order count by month">
+        <p class="chart__fallback">Chart requires JavaScript. The same figures are listed in the table below.</p>
+      </div>
+      <table class="sr-only">
+        <caption>Revenue and orders by month</caption>
+        <thead><tr><th>Month</th><th>Revenue</th><th>Orders</th></tr></thead>
+        <tbody>
+          {% for point in revenue_series %}
+            <tr><td>{{ point.full_label }}</td><td>{{ point.revenue|rupees }}</td><td>{{ point.orders }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  {% endif %}
+
+  <div class="split-grid">
+    {% if status_distribution %}
+      <section class="card">
+        <h2 class="card__title">Order status</h2>
+        <p class="card__note">Every order, grouped by where it is in the pipeline</p>
+        <div class="donut-block">
+          <svg class="donut" viewBox="0 0 100 100" role="img" aria-label="Order status distribution">
+            <circle class="donut__track" cx="50" cy="50" r="42"></circle>
+            {% donut_segments status_distribution as segments %}
+            {% for segment in segments %}
+              <circle class="donut__seg donut__seg--{{ segment.tone }}" cx="50" cy="50" r="42"
+                      stroke-dasharray="{{ segment.dash }}" stroke-dashoffset="{{ segment.offset }}">
+                <title>{{ segment.label }}: {{ segment.value }} ({{ segment.percent }}%)</title>
+              </circle>
+            {% endfor %}
+            <text class="donut__total" x="50" y="47">{% sum_values status_distribution %}</text>
+            <text class="donut__caption" x="50" y="59">orders</text>
+          </svg>
+          <ul class="legend-list">
+            {% for segment in segments %}
+              <li>
+                <i class="swatch swatch--{{ segment.tone }}"></i>
+                <span class="legend-list__label">{{ segment.label }}</span>
+                <span class="legend-list__value">{{ segment.value }}</span>
+                <span class="legend-list__pct">{{ segment.percent }}%</span>
+              </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </section>
+    {% endif %}
+
+    {% if payment_split %}
+      <section class="card">
+        <h2 class="card__title">Payment methods</h2>
+        <p class="card__note">How customers chose to pay</p>
+        {% sum_values payment_split as payment_total %}
+        <ul class="bar-list">
+          {% for row in payment_split %}
+            <li>
+              <div class="bar-list__head">
+                <span>{{ row.label }}</span>
+                <span class="bar-list__value">{{ row.value|thousands }}</span>
+              </div>
+              <div class="bar" role="img" aria-label="{{ row.label }}: {{ row.value }} orders">
+                <span class="bar__fill" style="width: {% bar_width row.value payment_total %}%"></span>
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endif %}
+  </div>
+
+  <div class="split-grid">
+    {% if top_products %}
+      <section class="card">
+        <h2 class="card__title">Best sellers</h2>
+        <p class="card__note">Units sold across paid orders</p>
+        {% with top_products.0.value as peak %}
+          <ul class="bar-list">
+            {% for row in top_products %}
+              <li>
+                <div class="bar-list__head">
+                  <span>{{ row.label }}{% if row.sub %} <em class="muted">· {{ row.sub }}</em>{% endif %}</span>
+                  <span class="bar-list__value">{{ row.value|thousands }} · {{ row.revenue|rupees }}</span>
+                </div>
+                <div class="bar" role="img" aria-label="{{ row.label }}: {{ row.value }} units">
+                  <span class="bar__fill bar__fill--accent" style="width: {% bar_width row.value peak %}%"></span>
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endwith %}
+      </section>
+    {% endif %}
+
+    {% if customer_series %}
+      <section class="card">
+        <h2 class="card__title">New customers</h2>
+        <p class="card__note">Sign-ups per month over the last year</p>
+        <div class="chart chart--bars" data-chart="customers" data-chart-source="chart-data"
+             aria-label="New customer sign-ups by month">
+          <p class="chart__fallback">Chart requires JavaScript.</p>
+        </div>
+      </section>
+    {% endif %}
+  </div>
+
+  <div class="split-grid split-grid--wide">
+    {% if recent_orders %}
+      <section class="card card--flush">
+        <div class="card__head card__head--padded">
+          <h2 class="card__title">Latest orders</h2>
+          {% if orders_list_url %}<a class="link link--quiet" href="{{ orders_list_url }}">View all {% panel_icon 'chevron-right' 13 %}</a>{% endif %}
+        </div>
+        <div class="table-wrap">
+          <table class="table table--compact">
+            <thead>
+              <tr><th>Order</th><th>Customer</th><th>Status</th><th>Payment</th><th class="align-right">Total</th><th>Placed</th></tr>
+            </thead>
+            <tbody>
+              {% for row in recent_orders %}
+                <tr>
+                  <td><a class="link" href="{{ row.url }}">#{{ row.obj.pk }}</a></td>
+                  <td class="truncate">{{ row.obj.user.email|default:"—" }}</td>
+                  <td><span class="badge badge--{{ row.status_tone }}">{{ row.obj.get_status_display }}</span></td>
+                  <td><span class="badge badge--{{ row.payment_tone }}">{{ row.obj.get_payment_status_display }}</span></td>
+                  <td class="align-right">{{ row.obj.final_amount|rupees }}</td>
+                  <td class="muted">{{ row.obj.created_at|date:"j M, H:i" }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    {% endif %}
+
+    <div class="stack">
+      {% if low_stock %}
+        <section class="card">
+          <div class="card__head">
+            <h2 class="card__title">Low stock</h2>
+            {% if products_list_url %}<a class="link link--quiet" href="{{ products_list_url }}">Products {% panel_icon 'chevron-right' 13 %}</a>{% endif %}
+          </div>
+          <ul class="stock-list">
+            {% for row in low_stock %}
+              <li>
+                <div class="stock-list__head">
+                  <a class="link" href="{{ row.url }}">{{ row.obj.name|default:"Unnamed product" }}</a>
+                  <span class="muted">{{ row.obj.available_quantity }} / {{ row.obj.max_quantity }}</span>
+                </div>
+                <div class="bar bar--sm">
+                  <span class="bar__fill bar__fill--warning" style="width: {{ row.percent }}%"></span>
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
+        </section>
+      {% endif %}
+
+      {% if recent_activity %}
+        <section class="card">
+          <div class="card__head">
+            <h2 class="card__title">Recent activity</h2>
+            <a class="link link--quiet" href="{% url 'admin_panel:activity' %}">Full log {% panel_icon 'chevron-right' 13 %}</a>
+          </div>
+          <ul class="timeline">
+            {% for row in recent_activity %}
+              <li>
+                <span class="timeline__dot timeline__dot--{{ row.tone }}"></span>
+                <div class="timeline__body">
+                  <p class="timeline__text">
+                    <strong>{{ row.label }}</strong> {{ row.entry.object_repr|truncatechars:44 }}
+                  </p>
+                  <p class="timeline__meta">
+                    {{ row.entry.user.email|default:"System" }} · {{ row.entry.action_time|date:"j M Y, H:i" }}
+                  </p>
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
+        </section>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if not recent_orders and not kpis %}
+    {% include 'panel/partials/empty_state.html' with icon='chart' title='No data yet' body='Metrics will appear here once the store has activity.' %}
+  {% endif %}
+
+  {{ chart_data|json_script:"chart-data" }}
+{% endblock %}

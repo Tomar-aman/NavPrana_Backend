@@ -1,0 +1,16 @@
+{% load panel_tags %}
+{% if messages %}
+  <div class="messages" role="status" aria-live="polite">
+    {% for message in messages %}
+      <div class="flash flash--{{ message.level_tag }}" data-flash>
+        {% if message.level_tag == 'success' %}{% panel_icon 'check' 17 %}
+        {% elif message.level_tag == 'error' or message.level_tag == 'warning' %}{% panel_icon 'alert' 17 %}
+        {% else %}{% panel_icon 'bell' 17 %}{% endif %}
+        <p>{{ message }}</p>
+        <button type="button" class="icon-btn flash__close" data-flash-close aria-label="Dismiss message">
+          {% panel_icon 'x' 15 %}
+        </button>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}

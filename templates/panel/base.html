@@ -1,0 +1,57 @@
+{% load static panel_tags %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>{% block title %}{{ page_title|default:"Admin" }}{% endblock %} · NavPrana Admin</title>
+
+  {# Applied before first paint so switching themes never flashes the wrong one. #}
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('panel-theme');
+        var theme = stored || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+        if (localStorage.getItem('panel-sidebar') === 'collapsed') {
+          document.documentElement.classList.add('sidebar-collapsed');
+        }
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <link rel="stylesheet" href="{% static 'panel/css/panel.css' %}">
+  {# Multi-resolution (16/32/48) so the tab icon stays sharp at any zoom. #}
+  <link rel="icon" href="{% static 'admin/images/favicon.ico' %}" sizes="any">
+</head>
+<body class="panel">
+  <a class="skip-link" href="#panel-main">Skip to main content</a>
+
+  {% include 'panel/partials/sidebar.html' %}
+
+  <div class="panel-shell">
+    {% include 'panel/partials/header.html' %}
+
+    <main id="panel-main" class="panel-content" tabindex="-1">
+      {% include 'panel/partials/breadcrumbs.html' %}
+
+      <div class="page-head">
+        <div class="page-head__text">
+          <h1 class="page-title">{{ page_title }}</h1>
+          {% if page_subtitle %}<p class="page-subtitle">{{ page_subtitle }}</p>{% endif %}
+        </div>
+        <div class="page-head__actions">{% block page_actions %}{% endblock %}</div>
+      </div>
+
+      {% include 'panel/partials/messages.html' %}
+
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  <div class="scrim" data-drawer-close hidden></div>
+
+  <script src="{% static 'panel/js/panel.js' %}" defer></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

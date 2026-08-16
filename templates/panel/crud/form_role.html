@@ -1,0 +1,92 @@
+{% extends 'panel/base.html' %}
+{% load panel_tags %}
+
+{% comment %}
+Roles need their own form because the permission list is ~200 checkboxes.
+Grouping them by app and giving each group a "select all" makes the screen
+usable; a flat CheckboxSelectMultiple does not.
+{% endcomment %}
+
+{% block content %}
+  <form method="post" class="form-layout" novalidate data-dirty-guard>
+    {% csrf_token %}
+
+    <div class="form-main">
+      {% if form.non_field_errors %}
+        <div class="flash flash--error">
+          {% panel_icon 'alert' 17 %}
+          <div>{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+        </div>
+      {% endif %}
+
+      <p class="hint">{% panel_icon 'shield' 15 %} {{ resource.help_text }}</p>
+
+      <section class="card">
+        <h2 class="card__title">Role</h2>
+        <div class="field-grid">
+          {% include 'panel/partials/form_field.html' with field=form.name %}
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card__head">
+          <h2 class="card__title">Permissions</h2>
+          <input type="search" class="field-input field-input--sm" placeholder="Filter permissions…"
+                 data-perm-filter aria-label="Filter permissions">
+        </div>
+
+        {% for error in form.permissions.errors %}
+          <p class="field__error">{% panel_icon 'alert' 14 %} {{ error }}</p>
+        {% endfor %}
+
+        <div class="perm-groups">
+          {% for app_label, checkboxes in form.permission_groups %}
+            <details class="perm-group" data-perm-group>
+              <summary>
+                <span class="perm-group__name">{{ app_label }}</span>
+                <span class="perm-group__count">{{ checkboxes|length }}</span>
+                {% panel_icon 'chevron-down' 15 css_class='perm-group__caret' %}
+              </summary>
+              <div class="perm-group__body">
+                <button type="button" class="btn btn--ghost btn--sm" data-perm-toggle-all>Select all in {{ app_label }}</button>
+                <ul class="perm-list">
+                  {% for checkbox in checkboxes %}
+                    <li data-perm-row>
+                      <label class="perm-item">
+                        {{ checkbox.tag }}
+                        <span>{{ checkbox.choice_label }}</span>
+                      </label>
+                    </li>
+                  {% endfor %}
+                </ul>
+              </div>
+            </details>
+          {% endfor %}
+        </div>
+      </section>
+    </div>
+
+    <aside class="form-side">
+      <div class="card card--sticky">
+        <h2 class="card__title">{% if is_create %}Create role{% else %}Save role{% endif %}</h2>
+        <p class="card__note">Roles apply to this panel and to <code>/admin/</code> alike.</p>
+        <div class="form-actions">
+          <button type="submit" class="btn btn--primary btn--block" data-loading="Saving…">
+            {% panel_icon 'check' 16 %} {% if is_create %}Create role{% else %}Save changes{% endif %}
+          </button>
+          <a class="btn btn--ghost btn--block" href="{{ cancel_url }}" data-dirty-ignore>Cancel</a>
+        </div>
+      </div>
+
+      {% if not is_create and can_delete %}
+        <div class="card card--danger">
+          <h2 class="card__title">Danger zone</h2>
+          <p class="card__note">Members of this role lose its permissions immediately.</p>
+          <a class="btn btn--danger-ghost btn--block" href="{{ delete_url }}" data-dirty-ignore>
+            {% panel_icon 'trash' 16 %} Delete role
+          </a>
+        </div>
+      {% endif %}
+    </aside>
+  </form>
+{% endblock %}

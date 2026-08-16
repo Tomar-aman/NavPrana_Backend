@@ -1,0 +1,49 @@
+{% load static panel_tags %}
+<aside class="sidebar" id="panel-sidebar" aria-label="Main navigation">
+  <div class="sidebar__brand">
+    <a href="{% url 'admin_panel:dashboard' %}" class="brand">
+      {% comment %} {# The square emblem, not logo_navprana.svg - that asset is a 4.16:1
+         wordmark lockup and would be squashed into this box. #} {% endcomment %}
+      <img src="{% static 'logos/navprana-mark.png' %}" alt="" class="brand__mark" width="28" height="28">
+      <span class="brand__text">
+        <span class="brand__name">NavPrana</span>
+        <span class="brand__sub">Admin panel</span>
+      </span>
+    </a>
+    <button type="button" class="icon-btn sidebar__close" data-drawer-close aria-label="Close navigation">
+      {% panel_icon 'x' 18 %}
+    </button>
+  </div>
+
+  <nav class="sidebar__nav">
+    {% for group in panel_nav %}
+      <div class="nav-group">
+        <p class="nav-group__title">{{ group.title }}</p>
+        <ul class="nav-list">
+          {% for item in group.items %}
+            <li>
+              <a href="{{ item.url }}"
+                 class="nav-link{% if item.is_active %} is-active{% endif %}"
+                 {% if item.is_active %}aria-current="page"{% endif %}
+                 data-tooltip="{{ item.label }}">
+                <span class="nav-link__icon">{% panel_icon item.icon 18 %}</span>
+                <span class="nav-link__label">{{ item.label }}</span>
+              </a>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endfor %}
+  </nav>
+
+  <div class="sidebar__foot">
+    <a href="{% url 'admin:index' %}" class="nav-link nav-link--muted" data-tooltip="Django admin" target="_blank" rel="noopener">
+      <span class="nav-link__icon">{% panel_icon 'external' 18 %}</span>
+      <span class="nav-link__label">Django admin</span>
+    </a>
+    <button type="button" class="nav-link nav-link--muted" data-sidebar-toggle data-tooltip="Expand sidebar">
+      <span class="nav-link__icon">{% panel_icon 'chevron-left' 18 css_class='collapse-icon' %}</span>
+      <span class="nav-link__label">Collapse</span>
+    </button>
+  </div>
+</aside>

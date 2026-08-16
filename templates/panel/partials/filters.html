@@ -1,0 +1,47 @@
+{% load panel_tags %}
+<form class="toolbar" method="get" data-autosubmit>
+  <div class="toolbar__search">
+    <span class="toolbar__search-icon">{% panel_icon 'search' 16 %}</span>
+    <input type="search" name="q" value="{{ search_term }}"
+           placeholder="{{ resource.search_hint|default:'Search' }}"
+           aria-label="Search {{ resource.label_plural }}"
+           {% if not resource.search_fields %}disabled{% endif %}>
+  </div>
+
+  {% if has_filters %}
+    <div class="toolbar__filters">
+      {% for filter in filter_contexts %}
+        {% if filter.template == 'daterange' %}
+          <label class="field field--inline field--range">
+            <span class="field__label">{{ filter.label }}</span>
+            <span class="range">
+              <input type="date" name="{{ filter.from_param }}" value="{{ filter.from_value }}" aria-label="{{ filter.label }} from">
+              <span class="range__sep">→</span>
+              <input type="date" name="{{ filter.to_param }}" value="{{ filter.to_value }}" aria-label="{{ filter.label }} to">
+            </span>
+          </label>
+        {% else %}
+          <label class="field field--inline">
+            <span class="field__label">{{ filter.label }}</span>
+            <select name="{{ filter.param }}" class="field-select">
+              {% for option in filter.options %}
+                <option value="{{ option.value }}" {% if option.selected %}selected{% endif %}>{{ option.label }}</option>
+              {% endfor %}
+            </select>
+          </label>
+        {% endif %}
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <div class="toolbar__end">
+    <button type="submit" class="btn btn--subtle">{% panel_icon 'filter' 15 %} Apply</button>
+    {% if filters_applied %}
+      <a class="btn btn--ghost" href="{{ clear_filters_url }}">{% panel_icon 'x' 15 %} Clear</a>
+    {% endif %}
+  </div>
+
+  {# Preserve sort and page size when the filter form submits. #}
+  {% if request.GET.sort %}<input type="hidden" name="sort" value="{{ request.GET.sort }}">{% endif %}
+  {% if request.GET.per_page %}<input type="hidden" name="per_page" value="{{ request.GET.per_page }}">{% endif %}
+</form>

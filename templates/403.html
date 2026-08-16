@@ -1,0 +1,70 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Access denied | Navprana</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #020617;
+            color: #94a3b8;
+            display: flex;
+            min-height: 100vh;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        .card {
+            text-align: center;
+            background: #0f172a;
+            padding: 48px 40px;
+            border-radius: 20px;
+            border: 1px solid #1e293b;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+            max-width: 430px;
+        }
+        h1 { color: #f8fafc; font-size: 22px; margin: 0 0 10px; }
+        p { font-size: 15px; line-height: 1.55; margin: 0 0 12px; }
+        .reason {
+            font-size: 13px;
+            color: #cbd5e1;
+            background: #1e293b;
+            border-radius: 10px;
+            padding: 12px 14px;
+            margin: 18px 0 26px;
+        }
+        .actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+        a.btn {
+            display: inline-block;
+            padding: 11px 22px;
+            border-radius: 9px;
+            font-weight: 600;
+            font-size: 14px;
+            text-decoration: none;
+            transition: background 0.15s;
+        }
+        .btn-primary { background: #1f7a4d; color: #fff; }
+        .btn-primary:hover { background: #17603c; }
+        .btn-quiet { background: #1e293b; color: #cbd5e1; }
+        .btn-quiet:hover { background: #263449; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div style="font-size: 44px; margin-bottom: 16px;" aria-hidden="true">🔒</div>
+        <h1>You don't have access to this page</h1>
+        <p>Your account is signed in, but it isn't permitted to open this section.</p>
+
+        {# Message set by the view that raised PermissionDenied; never a stack trace. #}
+        {% if exception %}<p class="reason">{{ exception }}</p>{% endif %}
+
+        <div class="actions">
+            <a class="btn btn-primary" href="/panel/">Back to the admin panel</a>
+            <a class="btn btn-quiet" href="/panel/account/">My account</a>
+        </div>
+    </div>
+</body>
+</html>

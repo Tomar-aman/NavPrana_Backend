@@ -1,0 +1,14 @@
+{% load panel_tags %}
+{% if breadcrumbs %}
+  <nav class="breadcrumbs" aria-label="Breadcrumb">
+    <ol>
+      <li><a href="{% url 'admin_panel:dashboard' %}">{% panel_icon 'dashboard' 14 %}<span>Dashboard</span></a></li>
+      {% for label, url in breadcrumbs %}
+        <li>
+          {% panel_icon 'chevron-right' 13 css_class='breadcrumbs__sep' %}
+          {% if url %}<a href="{{ url }}">{{ label }}</a>{% else %}<span aria-current="page">{{ label }}</span>{% endif %}
+        </li>
+      {% endfor %}
+    </ol>
+  </nav>
+{% endif %}
