@@ -1,0 +1,87 @@
+{% extends 'panel/base.html' %}
+{% load panel_tags %}
+
+{% block content %}
+  <p class="hint">{% panel_icon 'history' 15 %}
+    This log covers actions taken in this panel <em>and</em> in the Django admin — both write to the same history.
+  </p>
+
+  <section class="card card--flush">
+    <form class="toolbar" method="get" data-autosubmit>
+      <div class="toolbar__search">
+        <span class="toolbar__search-icon">{% panel_icon 'search' 16 %}</span>
+        <input type="search" name="q" value="{{ search_term }}" placeholder="Record, change or administrator"
+               aria-label="Search the activity log">
+      </div>
+
+      <div class="toolbar__filters">
+        {% for filter in filter_contexts %}
+          {% if filter.template == 'daterange' %}
+            <label class="field field--inline field--range">
+              <span class="field__label">{{ filter.label }}</span>
+              <span class="range">
+                <input type="date" name="{{ filter.from_param }}" value="{{ filter.from_value }}" aria-label="{{ filter.label }} from">
+                <span class="range__sep">→</span>
+                <input type="date" name="{{ filter.to_param }}" value="{{ filter.to_value }}" aria-label="{{ filter.label }} to">
+              </span>
+            </label>
+          {% else %}
+            <label class="field field--inline">
+              <span class="field__label">{{ filter.label }}</span>
+              <select name="{{ filter.param }}" class="field-select">
+                {% for option in filter.options %}
+                  <option value="{{ option.value }}" {% if option.selected %}selected{% endif %}>{{ option.label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+          {% endif %}
+        {% endfor %}
+      </div>
+
+      <div class="toolbar__end">
+        <button type="submit" class="btn btn--subtle">{% panel_icon 'filter' 15 %} Apply</button>
+        {% if filters_applied %}
+          <a class="btn btn--ghost" href="{{ clear_filters_url }}">{% panel_icon 'x' 15 %} Clear</a>
+        {% endif %}
+      </div>
+    </form>
+
+    {% if rows %}
+      <div class="table-wrap" tabindex="0">
+        <table class="table">
+          <thead>
+            <tr><th>When</th><th>Action</th><th>Record</th><th>Type</th><th>Administrator</th><th>Change</th></tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+              <tr>
+                <td class="nowrap muted">{{ row.entry.action_time|date:"j M Y, H:i" }}</td>
+                <td><span class="badge badge--{{ row.tone }}">{{ row.label }}</span></td>
+                <td>
+                  {% if row.target_url %}
+                    <a class="link" href="{{ row.target_url }}">{{ row.entry.object_repr|truncatechars:48 }}</a>
+                  {% else %}
+                    {{ row.entry.object_repr|truncatechars:48 }}
+                  {% endif %}
+                </td>
+                <td class="muted">{{ row.entry.content_type.app_label }} · {{ row.entry.content_type.model }}</td>
+                <td class="truncate">{{ row.entry.user.email|default:"—" }}</td>
+                <td class="muted">{{ row.entry.get_change_message|truncatechars:90 }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% include 'panel/partials/pagination.html' %}
+    {% elif filters_applied %}
+      <div class="empty">
+        <span class="empty__icon">{% panel_icon 'search' 26 %}</span>
+        <p class="empty__title">No matching activity</p>
+        <a class="btn btn--subtle" href="{{ clear_filters_url }}">{% panel_icon 'x' 15 %} Clear filters</a>
+      </div>
+    {% else %}
+      {% include 'panel/partials/empty_state.html' with icon='history' title='No activity recorded yet' body='Administrative changes will be listed here as they happen.' %}
+    {% endif %}
+  </section>
+{% endblock %}

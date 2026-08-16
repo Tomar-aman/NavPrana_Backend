@@ -1,0 +1,21 @@
+{% load panel_tags %}
+<div class="field{% if field.errors %} field--invalid{% endif %}{% if field.field.widget.input_type == 'checkbox' %} field--switch{% endif %}">
+  {% if field.field.widget.input_type == 'checkbox' %}
+    <label class="switch">
+      {{ field }}
+      <span class="switch__track" aria-hidden="true"></span>
+      <span class="switch__label">{{ field.label }}</span>
+    </label>
+  {% else %}
+    <label class="field__label" for="{{ field.id_for_label }}">
+      {{ field.label }}{% if field.field.required %}<span class="field__required" aria-hidden="true">*</span>{% endif %}
+    </label>
+    {{ field }}
+  {% endif %}
+
+  {% if field.help_text %}<p class="field__help">{{ field.help_text }}</p>{% endif %}
+
+  {% for error in field.errors %}
+    <p class="field__error">{% panel_icon 'alert' 14 %} {{ error }}</p>
+  {% endfor %}
+</div>

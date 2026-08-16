@@ -1,0 +1,48 @@
+{% extends 'panel/base.html' %}
+{% load panel_tags %}
+
+{% block content %}
+  <form class="card search-form" method="get" action="{% url 'admin_panel:search' %}">
+    <div class="toolbar__search toolbar__search--lg">
+      <span class="toolbar__search-icon">{% panel_icon 'search' 18 %}</span>
+      <input type="search" name="q" value="{{ term }}" autofocus
+             placeholder="Order number, customer email, product, coupon code…"
+             aria-label="Search the admin panel">
+    </div>
+    <button type="submit" class="btn btn--primary" data-loading="Searching…">Search</button>
+  </form>
+
+  {% if term and term|length < 2 %}
+    <div class="empty">
+      <span class="empty__icon">{% panel_icon 'search' 26 %}</span>
+      <p class="empty__title">Type at least two characters</p>
+    </div>
+  {% elif groups %}
+    <p class="search-count">{{ result_count }} result{{ result_count|pluralize }} across {{ groups|length }} section{{ groups|length|pluralize }}</p>
+    <div class="split-grid">
+      {% for group in groups %}
+        <section class="card">
+          <div class="card__head">
+            <h2 class="card__title">{% panel_icon group.resource.icon 16 %} {{ group.resource.label_plural }}</h2>
+            {% if group.more_url %}<a class="link link--quiet" href="{{ group.more_url }}">More {% panel_icon 'chevron-right' 13 %}</a>{% endif %}
+          </div>
+          <ul class="result-list">
+            {% for item in group.items %}
+              <li>
+                <a href="{{ item.url }}" class="result">
+                  <span class="result__label">{{ item.label }}</span>
+                  {% if item.sub != item.label %}<span class="result__sub">{{ item.sub }}</span>{% endif %}
+                  {% panel_icon 'chevron-right' 15 css_class='result__caret' %}
+                </a>
+              </li>
+            {% endfor %}
+          </ul>
+        </section>
+      {% endfor %}
+    </div>
+  {% elif term %}
+    {% include 'panel/partials/empty_state.html' with icon='search' title='No results' body='Nothing matched that search in the sections you can access.' %}
+  {% else %}
+    {% include 'panel/partials/empty_state.html' with icon='search' title='Search the panel' body='Look up orders by number or AWB, customers by email, products, coupons and contact queries.' %}
+  {% endif %}
+{% endblock %}

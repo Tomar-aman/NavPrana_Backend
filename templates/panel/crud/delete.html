@@ -1,0 +1,45 @@
+{% extends 'panel/base.html' %}
+{% load panel_tags %}
+
+{% block content %}
+  <div class="confirm">
+    <section class="card card--danger">
+      <div class="confirm__head">
+        <span class="confirm__icon">{% panel_icon 'alert' 24 %}</span>
+        <div>
+          <h2 class="card__title">Delete this {{ resource.label|lower }}?</h2>
+          <p class="card__note">This cannot be undone.</p>
+        </div>
+      </div>
+
+      <p class="confirm__target"><strong>{{ object_title }}</strong></p>
+
+      {% if related %}
+        <div class="confirm__cascade">
+          <p class="confirm__cascade-title">{% panel_icon 'alert' 15 %} The following linked records will also be deleted:</p>
+          <ul class="cascade-list">
+            {% for group in related %}
+              <li>
+                <span class="badge badge--danger">{{ group.count }}</span>
+                <span class="cascade-list__label">{{ group.label }}</span>
+                {% if group.samples %}
+                  <span class="cascade-list__samples">{{ group.samples|join:", " }}{% if group.count > 4 %} …{% endif %}</span>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% else %}
+        <p class="confirm__note">No other records depend on this one.</p>
+      {% endif %}
+
+      <form method="post" class="confirm__actions">
+        {% csrf_token %}
+        <a class="btn btn--ghost" href="{{ cancel_url }}">Cancel</a>
+        <button type="submit" class="btn btn--danger" data-loading="Deleting…">
+          {% panel_icon 'trash' 16 %} Yes, delete permanently
+        </button>
+      </form>
+    </section>
+  </div>
+{% endblock %}

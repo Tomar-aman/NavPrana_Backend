@@ -1,0 +1,114 @@
+{% extends 'panel/base.html' %}
+{% load panel_tags %}
+
+{% block page_actions %}
+  {% if can_export %}
+    <a class="btn btn--subtle" href="{{ export_url }}" data-loading="Preparing…">
+      {% panel_icon 'download' 15 %} Export CSV
+    </a>
+  {% endif %}
+  {% if can_add %}
+    <a class="btn btn--primary" href="{{ resource.url_add }}">{% panel_icon 'plus' 15 %} New {{ resource.label|lower }}</a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+  {% if resource.help_text %}
+    <p class="hint">{% panel_icon 'bell' 15 %} {{ resource.help_text }}</p>
+  {% endif %}
+
+  <section class="card card--flush">
+    {% include 'panel/partials/filters.html' %}
+
+    <form method="post" data-bulk-form>
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+
+      {% if bulk_actions %}
+        <div class="bulkbar" data-bulk-bar hidden>
+          <p class="bulkbar__count"><strong data-bulk-count>0</strong> selected</p>
+          <div class="bulkbar__actions">
+            {% for action in bulk_actions %}
+              <button type="submit" name="action" value="{{ action.key }}"
+                      class="btn btn--sm {% if action.tone == 'danger' %}btn--danger-ghost{% else %}btn--subtle{% endif %}"
+                      {% if action.confirm %}data-confirm="{{ action.confirm }}"{% endif %}
+                      data-loading="Working…">
+                {{ action.label }}
+              </button>
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+
+      {% if rows %}
+        <div class="table-wrap" tabindex="0">
+          <table class="table">
+            <thead>
+              <tr>
+                {% if bulk_actions %}
+                  <th class="table__check">
+                    <input type="checkbox" data-bulk-all aria-label="Select all rows on this page">
+                  </th>
+                {% endif %}
+                {% for head in sort_state %}
+                  <th class="align-{{ head.column.alignment }}{% if head.direction %} is-sorted{% endif %}">
+                    {% if head.url %}
+                      <a class="th-sort" href="{{ head.url }}">
+                        {{ head.column.header }}
+                        {% if head.direction == 'asc' %}{% panel_icon 'chevron-up' 13 %}
+                        {% elif head.direction == 'desc' %}{% panel_icon 'chevron-down' 13 %}
+                        {% else %}<span class="th-sort__hint">{% panel_icon 'chevron-down' 13 %}</span>{% endif %}
+                      </a>
+                    {% else %}{{ head.column.header }}{% endif %}
+                  </th>
+                {% endfor %}
+                <th class="table__actions"><span class="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in rows %}
+                <tr>
+                  {% if bulk_actions %}
+                    <td class="table__check">
+                      <input type="checkbox" name="selected" value="{{ row.pk }}" data-bulk-item
+                             aria-label="Select row {{ row.pk }}">
+                    </td>
+                  {% endif %}
+                  {% for cell in row.cells %}
+                    <td class="align-{{ cell.align }} {{ cell.css_class }}">
+                      {% include 'panel/partials/cell.html' with cell=cell %}
+                    </td>
+                  {% endfor %}
+                  <td class="table__actions">
+                    <div class="row-actions">
+                      <a class="icon-btn" href="{{ row.detail_url }}" title="View" aria-label="View record">{% panel_icon 'eye' 16 %}</a>
+                      {% if can_edit %}
+                        <a class="icon-btn" href="{{ row.edit_url }}" title="Edit" aria-label="Edit record">{% panel_icon 'edit' 16 %}</a>
+                      {% endif %}
+                      {% if can_delete %}
+                        <a class="icon-btn icon-btn--danger" href="{{ row.delete_url }}" title="Delete" aria-label="Delete record">{% panel_icon 'trash' 16 %}</a>
+                      {% endif %}
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        {% include 'panel/partials/pagination.html' %}
+      {% elif filters_applied %}
+        <div class="empty">
+          <span class="empty__icon">{% panel_icon 'search' 26 %}</span>
+          <p class="empty__title">No matches</p>
+          <p class="empty__body">No {{ resource.label_plural|lower }} match your search or filters.</p>
+          <a class="btn btn--subtle" href="{{ clear_filters_url }}">{% panel_icon 'x' 15 %} Clear filters</a>
+        </div>
+      {% elif can_add %}
+        {% include 'panel/partials/empty_state.html' with icon=resource.icon title=resource.empty_message|default:"Nothing here yet" body=resource.description action_url=resource.url_add action_label=new_label %}
+      {% else %}
+        {% include 'panel/partials/empty_state.html' with icon=resource.icon title=resource.empty_message|default:"Nothing here yet" body=resource.description %}
+      {% endif %}
+    </form>
+  </section>
+{% endblock %}

@@ -43,7 +43,9 @@ urlpatterns = [
     path('swagger<format>/', schema_view.without_ui(cache_timeout=0), name='schema-json'),
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
     path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
-    path('', include('admin_panel.urls')),
+    # Custom staff admin panel. Mounted on its own prefix so /admin/ (Django's
+    # own admin, still in active use) and the /api/ routes are untouched.
+    path('panel/', include('admin_panel.urls')),
     path('admin/', admin.site.urls),
     path('reports/', include('lab_report.url')),
     path("api/", include("config.apis", namespace="api")),

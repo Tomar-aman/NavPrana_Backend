@@ -1,0 +1,66 @@
+{% extends 'panel/base.html' %}
+{% load panel_tags %}
+
+{% block content %}
+  <form method="post" enctype="multipart/form-data" class="form-layout" novalidate data-dirty-guard>
+    {% csrf_token %}
+
+    <div class="form-main">
+      {% if form.non_field_errors %}
+        <div class="flash flash--error">
+          {% panel_icon 'alert' 17 %}
+          <div>{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+        </div>
+      {% endif %}
+
+      {% if resource.help_text %}
+        <p class="hint">{% panel_icon 'bell' 15 %} {{ resource.help_text }}</p>
+      {% endif %}
+
+      {% for title, fields in fieldsets %}
+        <section class="card">
+          {% if title %}<h2 class="card__title">{{ title }}</h2>{% endif %}
+          <div class="field-grid">
+            {% for field in fields %}
+              {% include 'panel/partials/form_field.html' with field=field %}
+            {% endfor %}
+          </div>
+        </section>
+      {% endfor %}
+    </div>
+
+    <aside class="form-side">
+      <div class="card card--sticky">
+        <h2 class="card__title">{% if is_create %}Create{% else %}Save changes{% endif %}</h2>
+        <p class="card__note">
+          {% if is_create %}
+            This record will be added to {{ resource.label_plural|lower }}.
+          {% else %}
+            Changes are recorded in the activity log.
+          {% endif %}
+        </p>
+        <div class="form-actions">
+          <button type="submit" class="btn btn--primary btn--block" data-loading="Saving…">
+            {% panel_icon 'check' 16 %} {% if is_create %}Create {{ resource.label|lower }}{% else %}Save changes{% endif %}
+          </button>
+          {% if is_create and can_add %}
+            <button type="submit" name="_addanother" value="1" class="btn btn--subtle btn--block" data-loading="Saving…">
+              {% panel_icon 'plus' 16 %} Save and add another
+            </button>
+          {% endif %}
+          <a class="btn btn--ghost btn--block" href="{{ cancel_url }}" data-dirty-ignore>Cancel</a>
+        </div>
+      </div>
+
+      {% if not is_create and can_delete %}
+        <div class="card card--danger">
+          <h2 class="card__title">Danger zone</h2>
+          <p class="card__note">Deleting cannot be undone and may remove linked records.</p>
+          <a class="btn btn--danger-ghost btn--block" href="{{ delete_url }}" data-dirty-ignore>
+            {% panel_icon 'trash' 16 %} Delete {{ resource.label|lower }}
+          </a>
+        </div>
+      {% endif %}
+    </aside>
+  </form>
+{% endblock %}

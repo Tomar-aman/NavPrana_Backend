@@ -1,0 +1,9 @@
+{% load panel_tags %}
+<div class="empty">
+  <span class="empty__icon">{% panel_icon icon|default:'inbox-empty' 26 %}</span>
+  <p class="empty__title">{{ title|default:"Nothing here yet" }}</p>
+  {% if body %}<p class="empty__body">{{ body }}</p>{% endif %}
+  {% if action_url and action_label %}
+    <a class="btn btn--primary" href="{{ action_url }}">{% panel_icon 'plus' 15 %} {{ action_label }}</a>
+  {% endif %}
+</div>

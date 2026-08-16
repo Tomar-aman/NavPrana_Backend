@@ -1,0 +1,69 @@
+{% load panel_tags %}
+<header class="topbar">
+  <button type="button" class="icon-btn topbar__burger" data-drawer-open aria-label="Open navigation" aria-controls="panel-sidebar">
+    {% panel_icon 'menu' 20 %}
+  </button>
+
+  <form class="topbar__search" action="{% url 'admin_panel:search' %}" method="get" role="search">
+    <span class="topbar__search-icon">{% panel_icon 'search' 17 %}</span>
+    <input type="search" name="q" value="{{ request.GET.q|default:'' }}"
+           placeholder="Search orders, customers, products…"
+           aria-label="Search the admin panel" autocomplete="off" data-hotkey-target>
+    <kbd class="topbar__kbd" aria-hidden="true">/</kbd>
+  </form>
+
+  <div class="topbar__actions">
+    <button type="button" class="icon-btn" data-theme-toggle aria-label="Switch colour theme" title="Switch colour theme">
+      <span class="theme-icon theme-icon--light">{% panel_icon 'sun' 18 %}</span>
+      <span class="theme-icon theme-icon--dark">{% panel_icon 'moon' 18 %}</span>
+    </button>
+
+    <div class="popover" data-popover>
+      <button type="button" class="icon-btn" data-popover-trigger aria-expanded="false" aria-label="Alerts">
+        {% panel_icon 'bell' 18 %}
+        {% if panel_alerts.total %}<span class="dot" aria-hidden="true"></span>{% endif %}
+      </button>
+      <div class="popover__panel popover__panel--wide" data-popover-panel hidden>
+        <p class="popover__title">Needs attention</p>
+        {% if panel_alerts.items %}
+          <ul class="alert-list">
+            {% for alert in panel_alerts.items %}
+              <li>
+                <a href="{% url 'admin_panel:resource_list' alert.resource %}{{ alert.query }}" class="alert-item">
+                  <span class="badge badge--{{ alert.tone }}">{{ alert.count }}</span>
+                  <span class="alert-item__label">{{ alert.label }}</span>
+                </a>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="popover__empty">Everything is up to date.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="popover" data-popover>
+      <button type="button" class="user-chip" data-popover-trigger aria-expanded="false">
+        {% if request.user.profile_picture %}
+          <img src="{{ request.user.profile_picture.url }}" alt="" class="avatar avatar--img">
+        {% else %}
+          <span class="avatar">{{ request.user|initials }}</span>
+        {% endif %}
+        <span class="user-chip__text">
+          <span class="user-chip__name">{{ request.user|display_name }}</span>
+          <span class="user-chip__role">{% if request.user.is_superuser %}Superuser{% else %}Staff{% endif %}</span>
+        </span>
+        {% panel_icon 'chevron-down' 15 css_class='user-chip__caret' %}
+      </button>
+      <div class="popover__panel" data-popover-panel hidden>
+        <p class="popover__meta">{{ request.user.email }}</p>
+        <a class="popover__item" href="{% url 'admin_panel:profile' %}">{% panel_icon 'user' 16 %} My account</a>
+        <a class="popover__item" href="{% url 'admin_panel:password_change' %}">{% panel_icon 'key' 16 %} Change password</a>
+        <form method="post" action="{% url 'admin_panel:logout' %}" class="popover__form">
+          {% csrf_token %}
+          <button type="submit" class="popover__item popover__item--danger">{% panel_icon 'logout' 16 %} Sign out</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</header>

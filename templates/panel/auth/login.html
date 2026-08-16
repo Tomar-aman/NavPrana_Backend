@@ -1,0 +1,70 @@
+{% load static panel_tags %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Sign in · NavPrana Admin</title>
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('panel-theme');
+        document.documentElement.setAttribute(
+          'data-theme',
+          stored || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        );
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+  <link rel="stylesheet" href="{% static 'panel/css/panel.css' %}">
+  {# Multi-resolution (16/32/48) so the tab icon stays sharp at any zoom. #}
+  <link rel="icon" href="{% static 'admin/images/favicon.ico' %}" sizes="any">
+</head>
+<body class="auth">
+  <main class="auth__panel">
+    <div class="auth__card">
+      <div class="auth__brand">
+        <img src="{% static 'logos/navprana-mark.png' %}" alt="" class="auth__mark" width="38" height="38">
+        <div>
+          <p class="auth__name">NavPrana</p>
+          <p class="auth__sub">Admin panel</p>
+        </div>
+      </div>
+
+      <h1 class="auth__title">Sign in</h1>
+      <p class="auth__lead">Use your staff account to continue.</p>
+
+      {% include 'panel/partials/messages.html' %}
+
+      {% if form.non_field_errors %}
+        <div class="flash flash--error">
+          {% panel_icon 'alert' 17 %}
+          <div>{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+        </div>
+      {% endif %}
+
+      <form method="post" novalidate class="auth__form">
+        {% csrf_token %}
+        {% include 'panel/partials/form_field.html' with field=form.username %}
+        {% include 'panel/partials/form_field.html' with field=form.password %}
+        {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+        <button type="submit" class="btn btn--primary btn--block btn--lg" data-loading="Signing in…">
+          Sign in
+        </button>
+      </form>
+
+      <p class="auth__foot">
+        Forgotten your password? Ask a superuser to reset it, or use
+        <code>manage.py changepassword</code> on the server.
+      </p>
+    </div>
+
+    <button type="button" class="icon-btn auth__theme" data-theme-toggle aria-label="Switch colour theme">
+      <span class="theme-icon theme-icon--light">{% panel_icon 'sun' 18 %}</span>
+      <span class="theme-icon theme-icon--dark">{% panel_icon 'moon' 18 %}</span>
+    </button>
+  </main>
+
+  <script src="{% static 'panel/js/panel.js' %}" defer></script>
+</body>
+</html>
