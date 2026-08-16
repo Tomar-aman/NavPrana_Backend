@@ -78,6 +78,7 @@ class ApplyCouponView(GenericAPIView):
                 'coupon_id': coupon.coupon_id,
                 'coupon_code': coupon.coupon_code,
                 'discount_amount': discount,
+                'free_shipping': coupon.free_shipping,
                 'is_temp': False,
                 'message': _('Coupon applied successfully')
             }, status=status.HTTP_200_OK)
@@ -136,6 +137,7 @@ class ApplyCouponView(GenericAPIView):
                     'coupon_id': f"TEMP_{temp_coupon.id}",
                     'coupon_code': temp_coupon.coupon_code,
                     'discount_amount': discount,
+                    'free_shipping': temp_coupon.free_shipping,
                     'is_temp': True,
                     'message': _('Coupon applied successfully')
                 }, status=status.HTTP_200_OK)

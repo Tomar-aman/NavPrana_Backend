@@ -5,9 +5,13 @@ from django.utils.translation import gettext_lazy as _
 from coupon.models import Coupon
 from product.models import Product
 from users.models import UserAddress
+from .couriers import COURIER_CHOICES, build_tracking_url, get_courier
 
 class Order(models.Model):
     COD_HANDLING_FEE = Decimal('20.00')
+    SHIPPING_FEE = Decimal('50.00')
+    # Orders above this subtotal ship free (see the public Shipping Policy page)
+    FREE_SHIPPING_THRESHOLD = Decimal('599.00')
 
     STATUS_CHOICES = (
         ('pending', 'Pending'),
@@ -123,7 +127,15 @@ class Order(models.Model):
         default=0.00,
         help_text=_('Calculated tax amount')
     )
-    
+
+    shipping_fee = models.DecimalField(
+        _('shipping fee'),
+        max_digits=10,
+        decimal_places=2,
+        default=0.00,
+        help_text=_('Shipping charge applied to this order')
+    )
+
     final_amount = models.DecimalField(
         _('final amount'),
         max_digits=10,
@@ -159,7 +171,23 @@ class Order(models.Model):
         null=True,
         help_text=_('Generated invoice PDF for this order')
     )
-    
+
+    # --- Shipping / tracking (filled in by staff from the admin) ---
+    courier = models.CharField(
+        _('courier'),
+        max_length=32,
+        choices=COURIER_CHOICES,
+        blank=True,
+        help_text=_('Shipping partner carrying this order')
+    )
+    awb_number = models.CharField(
+        _('AWB / tracking number'),
+        max_length=64,
+        blank=True,
+        help_text=_('Tracking number printed on the shipping label'),
+        db_index=True
+    )
+
     class Meta:
         verbose_name = _('Order')
         verbose_name_plural = _('Orders')
@@ -184,11 +212,27 @@ class Order(models.Model):
             return round((discounted_amount * self.tax_percentage) / 100)        
         return 0
     
+    def calculate_shipping(self):
+        """
+        Shipping charge for this order.
+
+        Free on an empty cart, above FREE_SHIPPING_THRESHOLD, or when the
+        applied coupon grants free shipping. Otherwise a flat SHIPPING_FEE.
+        """
+        if self.total_amount <= 0:
+            return Decimal('0.00')
+        if self.total_amount > self.FREE_SHIPPING_THRESHOLD:
+            return Decimal('0.00')
+        if self.coupon_id and getattr(self.coupon, 'free_shipping', False):
+            return Decimal('0.00')
+        return self.SHIPPING_FEE
+
     def calculate_final_amount(self):
-        """Calculate final amount after discount and tax"""
+        """Calculate final amount after discount, shipping and fees"""
         amount_after_discount = self.total_amount - self.discount_amount
         final = Decimal(str(round(amount_after_discount)))
 
+        final += self.shipping_fee
         final += self.get_handling_fee()
 
         # final = amount_after_discount + self.tax_amount
@@ -199,14 +243,30 @@ class Order(models.Model):
         if self.payment_method == 'cod':
             return self.COD_HANDLING_FEE
         return Decimal('0.00')
-    
+
+    @property
+    def courier_label(self):
+        """Display name of the shipping partner, e.g. 'Delhivery'."""
+        return get_courier(self.courier)['label'] if self.courier else ''
+
+    @property
+    def tracking_url(self):
+        """Courier's own tracking page for this AWB, or '' if unavailable."""
+        return build_tracking_url(self.courier, self.awb_number)
+
     def save(self, *args, **kwargs):
+        if self.awb_number:
+            self.awb_number = self.awb_number.strip().upper()
+
         # Calculate discount
         self.discount_amount = self.calculate_discount()
         
         # Calculate tax
         self.tax_amount = self.calculate_tax()
-        
+
+        # Calculate shipping (must run before final amount)
+        self.shipping_fee = self.calculate_shipping()
+
         # Calculate final amount
         self.final_amount = self.calculate_final_amount()
         
@@ -457,3 +517,4 @@ class OrderItem(models.Model):
             raise ValueError(_("Quantity must be positive"))
         self.total_price = self.price * self.quantity
         super().save(*args, **kwargs)
+

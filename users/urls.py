@@ -1,5 +1,5 @@
 from django.urls import path
-from users.views import SignupView, OTPVerifyView, ResendOTPView, LoginView, ForgotpasswordOTPView, ForgotPasswordOTPVerifyView, ForgotPasswordResetView, ProfileView, ChangePasswordView, LogoutView, GoogleLoginView, FacebookLoginView, UserAddressView, UserAddressDetailView
+from users.views import SignupView, OTPVerifyView, ResendOTPView, LoginView, ForgotpasswordOTPView, ForgotPasswordOTPVerifyView, ForgotPasswordResetView, ProfileView, ChangePasswordView, LogoutView, GoogleLoginView, FacebookLoginView, UserAddressView, UserAddressDetailView, GuestCheckoutView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 urlpatterns = [
@@ -7,6 +7,7 @@ urlpatterns = [
     path('verify-otp/', OTPVerifyView.as_view(), name='verify_otp'),
     path('resend-otp/', ResendOTPView.as_view(), name='resend_otp'),
     path('login/', LoginView.as_view(), name='login'),
+    path('guest-checkout/', GuestCheckoutView.as_view(), name='guest_checkout'),
     path('google-auth/', GoogleLoginView.as_view(), name='google_auth'),
     path('facebook-auth/', FacebookLoginView.as_view(), name='facebook_auth'),
     path('logout/', LogoutView.as_view(), name='logout'),

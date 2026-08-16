@@ -1,11 +1,12 @@
 from rest_framework.generics import GenericAPIView
 from rest_framework.response import Response
 from rest_framework import status
-from users.models import UserAddress
-from users.serializers import FacebookAuthSerializer, LogoutSerializer, SignupSerializer, OTPVerificationSerializer, ResendOTPSerializer, UserDetailsSerializer, LoginSerializer, ForgotPasswordOTPSerializer, ForgotPasswordOtpVerifySerializer, ForgotPasswordResetSerializer, GoogleAuthSerializer, ChangePasswordSerializer, UserAddressSerializer
+from users.models import User, UserAddress
+from users.serializers import FacebookAuthSerializer, LogoutSerializer, SignupSerializer, OTPVerificationSerializer, ResendOTPSerializer, UserDetailsSerializer, LoginSerializer, ForgotPasswordOTPSerializer, ForgotPasswordOtpVerifySerializer, ForgotPasswordResetSerializer, GoogleAuthSerializer, ChangePasswordSerializer, UserAddressSerializer, GuestCheckoutSerializer
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError, AccessToken
-from django.db import transaction
+from django.db import transaction, IntegrityError
+from django.db.models import Q
 from users.tasks import send_welcome_email
 
 class SignupView(GenericAPIView):
@@ -247,3 +248,104 @@ class UserAddressDetailView(GenericAPIView):
             return Response({"message": "Address deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
         except UserAddress.DoesNotExist:
             return Response({'error': 'Address not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class GuestCheckoutView(GenericAPIView):
+    """
+    Start a checkout without signing in.
+
+    POST /api/v1/user/guest-checkout/
+
+    Creates (or reuses) a lightweight guest account from the contact details
+    typed at checkout, saves the delivery address, and returns JWT tokens so
+    the rest of the normal checkout flow works unchanged.
+
+    Security: an email/phone alone is NOT proof of identity, so this only ever
+    signs in accounts that are themselves guests. If the details match a real
+    registered account, we refuse and ask the customer to log in — otherwise
+    anyone could take over an account by typing its email address.
+    """
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    serializer_class = GuestCheckoutSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        email = data['email']
+        phone = data['phone_number']
+
+        existing = User.objects.filter(Q(email__iexact=email) | Q(phone_number=phone)).first()
+
+        if existing and not existing.is_guest:
+            return Response({
+                'success': False,
+                'code': 'account_exists',
+                'error': 'You already have an account with these details. '
+                         'Please sign in to continue.',
+            }, status=status.HTTP_409_CONFLICT)
+
+        try:
+            with transaction.atomic():
+                if existing:
+                    user = existing
+                    user.first_name = data['first_name']
+                    user.last_name = data.get('last_name', '')
+                    user.email = email
+                    user.phone_number = phone
+                    user.save(update_fields=[
+                        'first_name', 'last_name', 'email', 'phone_number'
+                    ])
+                else:
+                    user = User.objects.create(
+                        email=email,
+                        phone_number=phone,
+                        first_name=data['first_name'],
+                        last_name=data.get('last_name', ''),
+                        is_guest=True,
+                        is_active=True,
+                    )
+                    # No password is ever valid for this account until the
+                    # customer sets one via the normal forgot-password flow.
+                    user.set_unusable_password()
+                    user.save(update_fields=['password'])
+
+                address_fields = {
+                    'address_line1': data['address_line1'],
+                    'address_line2': data.get('address_line2', ''),
+                    'city': data['city'],
+                    'state': data['state'],
+                    'postal_code': data['postal_code'],
+                    'country': data.get('country') or 'India',
+                }
+                address, _created = UserAddress.objects.get_or_create(
+                    user=user, **address_fields, defaults={'is_default': True}
+                )
+                if not address.is_default:
+                    user.addresses.exclude(pk=address.pk).update(is_default=False)
+                    address.is_default = True
+                    address.save(update_fields=['is_default'])
+        except IntegrityError:
+            return Response({
+                'success': False,
+                'error': 'Could not start checkout with these details. '
+                         'Please check your email and phone number.',
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            'success': True,
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'address_id': address.id,
+            'is_guest': user.is_guest,
+            'user': {
+                'id': user.id,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'email': user.email,
+                'phone_number': user.phone_number,
+            },
+        }, status=status.HTTP_200_OK)

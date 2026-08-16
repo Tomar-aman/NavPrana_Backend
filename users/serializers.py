@@ -400,3 +400,32 @@ class UserAddressSerializer(serializers.ModelSerializer):
             'id', 'user', 'address_line1', 'address_line2', 'city', 'state', 'postal_code', 'country', 'is_default'
         ]
         read_only_fields = ['user']
+
+class GuestCheckoutSerializer(serializers.Serializer):
+    """
+    Details collected on the checkout page when nobody is signed in.
+
+    Enough to create the order and reach the customer about it — no password,
+    no OTP, no signup detour.
+    """
+    first_name = serializers.CharField(max_length=150)
+    last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    email = serializers.EmailField()
+    phone_number = serializers.CharField(max_length=18)
+
+    address_line1 = serializers.CharField(max_length=255)
+    address_line2 = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    city = serializers.CharField(max_length=100)
+    state = serializers.CharField(max_length=100)
+    postal_code = serializers.CharField(max_length=20)
+    country = serializers.CharField(max_length=100, required=False, default='India')
+
+    def validate_email(self, value):
+        return value.strip().lower()
+
+    def validate_phone_number(self, value):
+        digits = ''.join(ch for ch in value if ch.isdigit())
+        if len(digits) < 10:
+            raise serializers.ValidationError("Enter a valid phone number.")
+        # Store the last 10 digits so the same person always maps to one account
+        return digits[-10:]
