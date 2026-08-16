@@ -87,6 +87,11 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    # WhiteNoise must sit directly below SecurityMiddleware so a static file is
+    # returned before session, CSRF, auth and message processing ever run. It
+    # sets its own 'Access-Control-Allow-Origin: *' on static responses, so
+    # sitting above CorsMiddleware does not affect cross-origin asset loads.
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -94,7 +99,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # Add this line
 ]
 
 ROOT_URLCONF = 'config.urls'
