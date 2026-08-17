@@ -1,5 +1,5 @@
 from django.urls import path
-from users.views import SignupView, OTPVerifyView, ResendOTPView, LoginView, ForgotpasswordOTPView, ForgotPasswordOTPVerifyView, ForgotPasswordResetView, ProfileView, ChangePasswordView, LogoutView, GoogleLoginView, FacebookLoginView, UserAddressView, UserAddressDetailView, GuestCheckoutView
+from users.views import SignupView, OTPVerifyView, ResendOTPView, LoginView, ForgotpasswordOTPView, ForgotPasswordOTPVerifyView, ForgotPasswordResetView, ProfileView, ChangePasswordView, LogoutView, GoogleLoginView, FacebookLoginView, UserAddressView, UserAddressDetailView, GuestCheckoutView, FirebasePhoneAuthView, PhoneVerifyView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 urlpatterns = [
@@ -10,6 +10,8 @@ urlpatterns = [
     path('guest-checkout/', GuestCheckoutView.as_view(), name='guest_checkout'),
     path('google-auth/', GoogleLoginView.as_view(), name='google_auth'),
     path('facebook-auth/', FacebookLoginView.as_view(), name='facebook_auth'),
+    path('firebase-phone-auth/', FirebasePhoneAuthView.as_view(), name='firebase_phone_auth'),
+    path('verify-phone/', PhoneVerifyView.as_view(), name='verify_phone'),
     path('logout/', LogoutView.as_view(), name='logout'),
     path('forgot-password-otp/', ForgotpasswordOTPView.as_view(), name='forgot_password_otp'),
     path('forgot-password-otp-verify/', ForgotPasswordOTPVerifyView.as_view(), name='forgot_password_otp_verify'),

@@ -69,6 +69,17 @@ class User(AbstractUser):
             'unique': _("A user with that Facebook ID already exists."),
         },
     )
+    firebase_uid = models.CharField(
+        _('firebase uid'),
+        max_length=128,
+        unique=True,
+        null=True,
+        blank=True,
+        help_text=_('Firebase account that verified this phone number over SMS.'),
+        error_messages={
+            'unique': _("A user with that Firebase account already exists."),
+        },
+    )
     email_verified = models.BooleanField(
         _('email verified'),
         default=False,

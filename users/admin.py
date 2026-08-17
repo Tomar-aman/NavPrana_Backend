@@ -3,14 +3,14 @@ from .models import User, UserAddress, OTP
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
-    list_display = ('email', 'first_name', 'last_name', 'is_staff', 'is_active', 'date_joined')
-    list_filter = ('is_staff', 'is_active', 'date_joined')
-    search_fields = ('email', 'first_name', 'last_name', 'phone_number')
+    list_display = ('email', 'phone_number', 'first_name', 'last_name', 'is_staff', 'is_active', 'phone_verified', 'date_joined')
+    list_filter = ('is_staff', 'is_active', 'phone_verified', 'date_joined')
+    search_fields = ('email', 'first_name', 'last_name', 'phone_number', 'firebase_uid')
     ordering = ('-date_joined',)
     readonly_fields = ('date_joined', 'last_login')
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
-        ('Personal Info', {'fields': ('first_name', 'last_name', 'profile_picture', 'country_code', 'phone_number', 'google_id')}),
+        ('Personal Info', {'fields': ('first_name', 'last_name', 'profile_picture', 'country_code', 'phone_number', 'google_id', 'firebase_uid')}),
         ('Permissions', {'fields': ('is_staff', 'is_active', 'is_superuser','phone_verified','email_verified')}),
         ('Important Dates', {'fields': ('last_login', 'date_joined')}),
     )

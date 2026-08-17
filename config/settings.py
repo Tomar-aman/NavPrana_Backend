@@ -235,6 +235,26 @@ REST_FRAMEWORK = {
 # DRF Standardized errors
 DRF_STANDARDIZED_ERRORS = {"EXCEPTION_FORMATTER_CLASS": "config.handler.CustomExceptionFormatter"}
 
+# Firebase settings (phone / OTP authentication)
+#
+# FIREBASE_CREDENTIALS_JSON accepts either an absolute/relative path to the
+# service-account JSON downloaded from the Firebase console, or the raw JSON
+# itself (handy on hosts where only env vars are available). Leave it empty and
+# every Firebase-backed endpoint returns a clear "not configured" error instead
+# of crashing at import time.
+FIREBASE_CREDENTIALS_JSON = config('FIREBASE_CREDENTIALS_JSON', default='')
+
+# Turn these on once phone OTP is confirmed working end to end. While they are
+# False the phone token is still verified whenever the client sends one — it is
+# only the *requirement* that is relaxed, so an unconfigured Firebase project
+# can never lock customers out of signup or checkout.
+REQUIRE_PHONE_VERIFICATION_ON_SIGNUP = config(
+    'REQUIRE_PHONE_VERIFICATION_ON_SIGNUP', default=False, cast=bool
+)
+REQUIRE_PHONE_VERIFICATION_ON_GUEST_CHECKOUT = config(
+    'REQUIRE_PHONE_VERIFICATION_ON_GUEST_CHECKOUT', default=False, cast=bool
+)
+
 # Cashfree Settings
 CASHFREE_APP_ID = config('CASHFREE_APP_ID')
 CASHFREE_SECRET_KEY = config('CASHFREE_SECRET_KEY')

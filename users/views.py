@@ -2,7 +2,7 @@ from rest_framework.generics import GenericAPIView
 from rest_framework.response import Response
 from rest_framework import status
 from users.models import User, UserAddress
-from users.serializers import FacebookAuthSerializer, LogoutSerializer, SignupSerializer, OTPVerificationSerializer, ResendOTPSerializer, UserDetailsSerializer, LoginSerializer, ForgotPasswordOTPSerializer, ForgotPasswordOtpVerifySerializer, ForgotPasswordResetSerializer, GoogleAuthSerializer, ChangePasswordSerializer, UserAddressSerializer, GuestCheckoutSerializer
+from users.serializers import FacebookAuthSerializer, LogoutSerializer, SignupSerializer, OTPVerificationSerializer, ResendOTPSerializer, UserDetailsSerializer, LoginSerializer, ForgotPasswordOTPSerializer, ForgotPasswordOtpVerifySerializer, ForgotPasswordResetSerializer, GoogleAuthSerializer, ChangePasswordSerializer, UserAddressSerializer, GuestCheckoutSerializer, FirebasePhoneAuthSerializer, PhoneVerifySerializer
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError, AccessToken
 from django.db import transaction, IntegrityError
@@ -160,6 +160,62 @@ class FacebookLoginView(GenericAPIView):
         return Response(user_data, status=status.HTTP_200_OK)
 
 
+class FirebasePhoneAuthView(GenericAPIView):
+    """
+    Sign in with a phone number verified through Firebase.
+
+    POST /api/v1/user/firebase-phone-auth/  {"firebase_id_token": "..."}
+
+    The browser runs the SMS round trip with the Firebase JS SDK; this endpoint
+    only ever sees the resulting ID token. An unknown number creates a
+    phone-only account and signs it straight in, the same way Google login does.
+    """
+    serializer_class = FirebasePhoneAuthSerializer
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+
+        user = serializer.validated_data['user']
+        is_new_user = serializer.validated_data['is_new_user']
+        refresh = RefreshToken.for_user(user)
+
+        user_data = UserDetailsSerializer(user, context={'request': request}).data
+        user_data["refresh"] = str(refresh)
+        user_data["access"] = str(refresh.access_token)
+        user_data["is_new_user"] = is_new_user
+        user_data["message"] = (
+            "Signup successful. Welcome!" if is_new_user
+            else "Login successful. Welcome back!"
+        )
+        # Only mail a welcome when we actually have somewhere to send it —
+        # phone-only signups have no email address yet.
+        if is_new_user and user.email:
+            transaction.on_commit(lambda: send_welcome_email.delay(user.id))
+
+        return Response(user_data, status=status.HTTP_200_OK)
+
+
+class PhoneVerifyView(GenericAPIView):
+    """
+    Attach a Firebase-verified phone number to the signed-in account.
+
+    POST /api/v1/user/verify-phone/  {"firebase_id_token": "..."}
+    """
+    serializer_class = PhoneVerifySerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+
+        return Response({
+            "message": "Phone number verified.",
+            "user": UserDetailsSerializer(user, context={'request': request}).data,
+        }, status=status.HTTP_200_OK)
+
+
 class ProfileView(GenericAPIView):
 
     serializer_class = UserDetailsSerializer
@@ -276,6 +332,14 @@ class GuestCheckoutView(GenericAPIView):
 
         email = data['email']
         phone = data['phone_number']
+        phone_verified = data.get('phone_verified', False)
+        firebase_uid = data.get('firebase_uid')
+        # Never take a uid off another account — it would break that customer's
+        # phone login. Without it the number still matches on its own.
+        if firebase_uid and User.objects.filter(firebase_uid=firebase_uid).exclude(
+            Q(email__iexact=email) | Q(phone_number=phone)
+        ).exists():
+            firebase_uid = None
 
         existing = User.objects.filter(Q(email__iexact=email) | Q(phone_number=phone)).first()
 
@@ -295,9 +359,19 @@ class GuestCheckoutView(GenericAPIView):
                     user.last_name = data.get('last_name', '')
                     user.email = email
                     user.phone_number = phone
-                    user.save(update_fields=[
+                    update_fields = [
                         'first_name', 'last_name', 'email', 'phone_number'
-                    ])
+                    ]
+                    # Only ever add verification, never take it away — a guest
+                    # who skipped the OTP this time may have verified before.
+                    if phone_verified:
+                        user.phone_verified = True
+                        user.country_code = data.get('country_code') or user.country_code
+                        update_fields += ['phone_verified', 'country_code']
+                        if firebase_uid and not user.firebase_uid:
+                            user.firebase_uid = firebase_uid
+                            update_fields.append('firebase_uid')
+                    user.save(update_fields=update_fields)
                 else:
                     user = User.objects.create(
                         email=email,
@@ -306,6 +380,9 @@ class GuestCheckoutView(GenericAPIView):
                         last_name=data.get('last_name', ''),
                         is_guest=True,
                         is_active=True,
+                        phone_verified=phone_verified,
+                        country_code=data.get('country_code') or None,
+                        firebase_uid=firebase_uid if phone_verified else None,
                     )
                     # No password is ever valid for this account until the
                     # customer sets one via the normal forgot-password flow.
@@ -347,5 +424,6 @@ class GuestCheckoutView(GenericAPIView):
                 'last_name': user.last_name,
                 'email': user.email,
                 'phone_number': user.phone_number,
+                'phone_verified': user.phone_verified,
             },
         }, status=status.HTTP_200_OK)

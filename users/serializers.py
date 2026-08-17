@@ -1,42 +1,83 @@
 from rest_framework import serializers
 from users.models import User, OTP, UserAddress
+from django.conf import settings
+from django.db import transaction, IntegrityError
+from django.db.models import Q
 from django.utils import timezone
 import random
 from datetime import timedelta
 from users.tasks import send_otp_email
+from users.firebase import verify_phone_id_token
 import requests
 from django.core.files.base import ContentFile
 
+
+def normalize_phone(value):
+    """
+    Reduce anything the customer might type ('+91 98765 43210', '098765 43210')
+    to the bare 10-digit number this project stores, so the same person always
+    maps to one account no matter which form they came through.
+    """
+    digits = ''.join(ch for ch in str(value or '') if ch.isdigit())
+    return digits[-10:]
+
+
 class SignupSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, min_length=8)
-    
+    # Optional proof, from Firebase, that the customer controls the number they
+    # typed. Sent by the "Verify" button next to the phone field.
+    firebase_id_token = serializers.CharField(
+        write_only=True, required=False, allow_blank=True
+    )
+
     class Meta:
         model = User
         fields = [
-            'first_name', 'last_name', 'email', 'phone_number', 'password'
+            'first_name', 'last_name', 'email', 'phone_number', 'password',
+            'firebase_id_token'
         ]
         extra_kwargs = {
             'password': {'write_only': True},
             'email': {'validators': []},  # Remove default unique validator
             'phone_number': {'validators': []}  # Remove default unique validator
         }
-    
+
+    def validate_phone_number(self, value):
+        phone = normalize_phone(value)
+        if len(phone) < 10:
+            raise serializers.ValidationError("Enter a valid 10-digit phone number.")
+        return phone
+
     def validate(self, attrs):
         # Check if email already exists
         if User.objects.filter(email=attrs['email'].lower(), is_active=True).exists():
             raise serializers.ValidationError({
                 "email": "Email already exists."
             })
-        
+
         # Check if phone number already exists
         if User.objects.filter(phone_number=attrs['phone_number'], is_active=True).exists():
             raise serializers.ValidationError({
                 "phone_number": "Phone number already exists."
             })
-        
+
+        token = (attrs.pop('firebase_id_token', '') or '').strip()
+        if token:
+            verified = verify_phone_id_token(token)
+            if verified['phone_number'] != attrs['phone_number']:
+                raise serializers.ValidationError({
+                    "phone_number": "Verify the same number you entered above."
+                })
+            attrs['_verified_phone'] = verified
+        elif settings.REQUIRE_PHONE_VERIFICATION_ON_SIGNUP:
+            raise serializers.ValidationError({
+                "firebase_id_token": "Please verify your phone number to continue."
+            })
+
         return attrs
-    
+
     def create(self, validated_data):
+        verified = validated_data.pop('_verified_phone', None)
         email = validated_data.get('email').lower()
         phone_number = validated_data.get('phone_number')
 
@@ -52,6 +93,17 @@ class SignupSerializer(serializers.ModelSerializer):
             user = User.objects.create_user(**validated_data)
             user.is_active = False
             user.save()
+
+        if verified:
+            user.phone_verified = True
+            if verified['country_code']:
+                user.country_code = verified['country_code']
+            # Never take the uid off another account. The phone-number check in
+            # validate() already rules out that account being the same person,
+            # so leaving the uid unset here loses nothing.
+            if not User.objects.filter(firebase_uid=verified['uid']).exclude(pk=user.pk).exists():
+                user.firebase_uid = verified['uid']
+            user.save(update_fields=['firebase_uid', 'country_code', 'phone_verified'])
 
         # Generate and save OTP
         otp_code = str(random.randint(100000, 999999))
@@ -144,8 +196,27 @@ class UserDetailsSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'id', 'first_name', 'last_name', 'email', 'phone_number','profile_picture','is_active'
+            'id', 'first_name', 'last_name', 'email', 'phone_number','profile_picture','is_active',
+            'country_code', 'phone_verified', 'email_verified'
         ]
+        read_only_fields = ['phone_verified', 'email_verified']
+
+    def validate_phone_number(self, value):
+        phone = normalize_phone(value)
+        if len(phone) < 10:
+            raise serializers.ValidationError("Enter a valid 10-digit phone number.")
+        if User.objects.filter(phone_number=phone).exclude(pk=self.instance.pk).exists():
+            raise serializers.ValidationError("That phone number is already linked to another account.")
+        return phone
+
+    def update(self, instance, validated_data):
+        # Editing the number by hand is not proof of anything — drop the
+        # verified flag and the Firebase link so the customer has to re-verify.
+        new_phone = validated_data.get('phone_number')
+        if new_phone and new_phone != instance.phone_number:
+            instance.phone_verified = False
+            instance.firebase_uid = None
+        return super().update(instance, validated_data)
         
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
@@ -372,6 +443,121 @@ class FacebookAuthSerializer(serializers.Serializer):
             raise serializers.ValidationError(f"Invalid token. {str(e)}")
 
     
+class FirebasePhoneAuthSerializer(serializers.Serializer):
+    """
+    Sign in with a phone number that Firebase has already verified over SMS.
+
+    Mirrors the Google/Facebook serializers: verify the provider's token, find
+    or create the matching account, and hand the view a user to mint JWTs for.
+    An unrecognised number creates a phone-only account — no email, no usable
+    password — which the customer can fill in later from their profile.
+    """
+    firebase_id_token = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        verified = verify_phone_id_token(attrs.get('firebase_id_token'))
+        uid = verified['uid']
+        phone = verified['phone_number']
+
+        # Match on the Firebase account first, then fall back to the number so
+        # accounts created by signup or guest checkout are picked up too.
+        user = User.objects.filter(firebase_uid=uid).first()
+        created = False
+        if user is None:
+            user = User.objects.filter(
+                Q(phone_number=phone) | Q(phone_number=verified['e164'])
+            ).first()
+
+        if user is None:
+            try:
+                with transaction.atomic():
+                    user = User.objects.create(
+                        phone_number=phone,
+                        country_code=verified['country_code'] or None,
+                        firebase_uid=uid,
+                        phone_verified=True,
+                        is_active=True,
+                    )
+                    # No password is ever valid here until the customer sets one
+                    # through the normal forgot-password flow.
+                    user.set_unusable_password()
+                    user.save(update_fields=['password'])
+                created = True
+            except IntegrityError:
+                # Two taps landing at once — the other one won, so use its row.
+                user = User.objects.filter(
+                    Q(firebase_uid=uid) | Q(phone_number=phone)
+                ).first()
+                if user is None:
+                    raise serializers.ValidationError({
+                        'firebase_id_token': 'Could not sign in with that number. '
+                                             'Please try again.'
+                    })
+        else:
+            updates = []
+            if not user.firebase_uid:
+                user.firebase_uid = uid
+                updates.append('firebase_uid')
+            if user.phone_number != phone:
+                user.phone_number = phone
+                updates.append('phone_number')
+            if verified['country_code'] and user.country_code != verified['country_code']:
+                user.country_code = verified['country_code']
+                updates.append('country_code')
+            if not user.phone_verified:
+                user.phone_verified = True
+                updates.append('phone_verified')
+            if not user.is_active:
+                # They proved they own the number, which is as good as the
+                # email OTP this account never completed.
+                user.is_active = True
+                updates.append('is_active')
+            if updates:
+                user.save(update_fields=updates)
+
+        attrs['user'] = user
+        attrs['is_new_user'] = created
+        return attrs
+
+
+class PhoneVerifySerializer(serializers.Serializer):
+    """
+    Attach a Firebase-verified number to the account that is already signed in.
+
+    Used from the profile page, and by anyone finishing the phone step after
+    signing up with an email address.
+    """
+    firebase_id_token = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        user = self.context['request'].user
+        verified = verify_phone_id_token(attrs.get('firebase_id_token'))
+
+        clash = User.objects.filter(
+            Q(phone_number=verified['phone_number']) | Q(firebase_uid=verified['uid'])
+        ).exclude(pk=user.pk)
+        if clash.exists():
+            raise serializers.ValidationError({
+                'firebase_id_token': 'That number is already linked to another account.'
+            })
+
+        attrs['verified'] = verified
+        return attrs
+
+    def save(self, **kwargs):
+        user = self.context['request'].user
+        verified = self.validated_data['verified']
+
+        user.phone_number = verified['phone_number']
+        user.country_code = verified['country_code'] or user.country_code
+        user.firebase_uid = verified['uid']
+        user.phone_verified = True
+        user.save(update_fields=[
+            'phone_number', 'country_code', 'firebase_uid', 'phone_verified'
+        ])
+        return user
+
+
 class ChangePasswordSerializer(serializers.Serializer):
     old_password = serializers.CharField(required=True)
     new_password = serializers.CharField(required=True, min_length=8)
@@ -420,12 +606,35 @@ class GuestCheckoutSerializer(serializers.Serializer):
     postal_code = serializers.CharField(max_length=20)
     country = serializers.CharField(max_length=100, required=False, default='India')
 
+    # Optional proof from Firebase that the customer controls the number they
+    # typed, so the order actually reaches a reachable phone.
+    firebase_id_token = serializers.CharField(
+        write_only=True, required=False, allow_blank=True
+    )
+
     def validate_email(self, value):
         return value.strip().lower()
 
     def validate_phone_number(self, value):
-        digits = ''.join(ch for ch in value if ch.isdigit())
+        # Store the last 10 digits so the same person always maps to one account
+        digits = normalize_phone(value)
         if len(digits) < 10:
             raise serializers.ValidationError("Enter a valid phone number.")
-        # Store the last 10 digits so the same person always maps to one account
-        return digits[-10:]
+        return digits
+
+    def validate(self, attrs):
+        token = (attrs.pop('firebase_id_token', '') or '').strip()
+        if token:
+            verified = verify_phone_id_token(token)
+            # Trust the number Firebase proved over the one typed in the form.
+            attrs['phone_number'] = verified['phone_number']
+            attrs['country_code'] = verified['country_code']
+            attrs['firebase_uid'] = verified['uid']
+            attrs['phone_verified'] = True
+        elif settings.REQUIRE_PHONE_VERIFICATION_ON_GUEST_CHECKOUT:
+            raise serializers.ValidationError({
+                'firebase_id_token': 'Please verify your phone number to continue.'
+            })
+        else:
+            attrs['phone_verified'] = False
+        return attrs
