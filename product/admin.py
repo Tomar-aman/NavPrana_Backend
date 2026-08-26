@@ -1,4 +1,6 @@
 from django.contrib import admin
+from django.contrib.admin.widgets import AdminSplitDateTime
+from django import forms
 from .models import Product, ProductImage, Category, ProductReview, ProductFeature, ProductSpecification , ProductReviewMedia
 
 @admin.register(Category)
@@ -38,6 +40,21 @@ class ProductReviewInline(admin.TabularInline):
     extra = 1
     readonly_fields = ('created_at',)
 
+
+class ProductReviewAdminForm(forms.ModelForm):
+    created_at = forms.SplitDateTimeField(widget=AdminSplitDateTime)
+    updated_at = forms.SplitDateTimeField(widget=AdminSplitDateTime)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            self.initial['created_at'] = self.instance.created_at
+            self.initial['updated_at'] = self.instance.updated_at
+
+    class Meta:
+        model = ProductReview
+        fields = ('product', 'user', 'rating', 'review')
+
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
     list_display = ('name', 'size', 'category', 'price', 'max_quantity', 'available_quantity', 'created_at', 'updated_at')
@@ -66,16 +83,34 @@ class ProductImageAdmin(admin.ModelAdmin):
 
 @admin.register(ProductReview)
 class ProductReviewAdmin(admin.ModelAdmin):
+    form = ProductReviewAdminForm
     list_display = ('product', 'user', 'rating', 'created_at', 'updated_at')
     list_filter = ('rating', 'created_at', 'updated_at')
     search_fields = ('product__name', 'user__email', 'review_text')
-    # readonly_fields = ('created_at', 'updated_at')
     ordering = ('-created_at',)
-    fieldsets = (
-        (None, {'fields': ('product', 'user', 'rating', 'review')}),
-        ('Timestamps', {'fields': ('created_at', 'updated_at')}),
-    )
     inlines = [ProductReviewMediaInline]
+
+    def get_form(self, request, obj=None, change=False, **kwargs):
+        fields = kwargs.get('fields')
+        if fields is None:
+            fields = ('product', 'user', 'rating', 'review')
+        else:
+            fields = tuple(
+                field for field in fields
+                if field not in ('created_at', 'updated_at')
+            )
+        kwargs['fields'] = fields
+        return super().get_form(request, obj, change, **kwargs)
+
+    def save_model(self, request, obj, form, change):
+        timestamps = {
+            'created_at': form.cleaned_data['created_at'],
+            'updated_at': form.cleaned_data['updated_at'],
+        }
+        super().save_model(request, obj, form, change)
+        ProductReview.objects.filter(pk=obj.pk).update(**timestamps)
+        obj.created_at = timestamps['created_at']
+        obj.updated_at = timestamps['updated_at']
 
 @admin.register(ProductSpecification)
 class ProductSpecificationAdmin(admin.ModelAdmin):
