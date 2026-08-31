@@ -8,7 +8,7 @@ from users.models import UserAddress
 from .couriers import COURIER_CHOICES, build_tracking_url, get_courier
 
 class Order(models.Model):
-    COD_HANDLING_FEE = Decimal('20.00')
+    COD_HANDLING_FEE = Decimal('49.00')
     SHIPPING_FEE = Decimal('50.00')
     # Orders above this subtotal ship free (see the public Shipping Policy page)
     FREE_SHIPPING_THRESHOLD = Decimal('599.00')
