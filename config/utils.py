@@ -16,14 +16,21 @@ def send_mail(subject, email_template_name, context, to_email,**kwargs):
         host_user = mail_setting.username
         host_pass = mail_setting.password
         host_port = mail_setting.port
-        from_mail = f"NavPrana<{mail_setting.from_email}>"
+        from_mail = f"NavPrana <{mail_setting.from_email}>"
     else:
         host = settings.EMAIL_HOST
         host_user = settings.EMAIL_HOST_USER
         host_pass = settings.EMAIL_HOST_PASSWORD
         host_port = settings.EMAIL_PORT
-        from_mail = f"NavPrana {settings.EMAIL_HOST_USER}"
+        from_mail = f"NavPrana <{settings.EMAIL_HOST_USER}>"
     mail_obj = EmailBackend( host=host,port=host_port,  password=host_pass, username=host_user,  use_tls=True, timeout=60)
+    # Email clients cannot resolve relative URLs, so templates need an absolute
+    # base for images and links. Explicit context values still win.
+    context = {
+        'site_url': settings.SITE_URL,
+        'frontend_url': settings.FRONTEND_URL,
+        **context,
+    }
     email_template = get_template(email_template_name).render(context)
     email_msg = mail.EmailMessage(
             subject=subject,
