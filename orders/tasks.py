@@ -71,7 +71,7 @@ def send_order_confirmation_email(self, order_id):
         raise self.retry(exc=exc, countdown=60 * (2 ** self.request.retries))
 
 
-# @shared_task(bind=True, max_retries=3)
+@shared_task(bind=True, max_retries=3)
 def send_payment_success_email(self, order_id, transaction_id):
     """
     Send payment success email to customer
@@ -295,7 +295,7 @@ def send_order_delivered_email(self, order_id):
         raise self.retry(exc=exc, countdown=60 * (2 ** self.request.retries))
 
 
-# @shared_task(bind=True, max_retries=3)
+@shared_task(bind=True, max_retries=3)
 def send_invoice_email(self, order_id):
     """
     Send invoice email with attachment to customer
@@ -305,7 +305,7 @@ def send_invoice_email(self, order_id):
     """
     try:
         from orders.models import Order
-        from django.core.mail import EmailMessage
+        from django.core.mail import EmailMultiAlternatives
         
         order = Order.objects.select_related('user').get(id=order_id)
         
@@ -331,7 +331,7 @@ def send_invoice_email(self, order_id):
         )
         
         # Create email with attachment
-        email = EmailMessage(
+        email = EmailMultiAlternatives(
             subject=f'Invoice - Order #{order.id}',
             body=text_message,
             from_email=settings.DEFAULT_FROM_EMAIL,

@@ -23,7 +23,7 @@ def send_mail(subject, email_template_name, context, to_email,**kwargs):
         host_pass = settings.EMAIL_HOST_PASSWORD
         host_port = settings.EMAIL_PORT
         from_mail = f"NavPrana {settings.EMAIL_HOST_USER}"
-    mail_obj = EmailBackend( host=host,port=host_port,  password=host_pass, username=host_user,  use_tls=True, timeout=10)
+    mail_obj = EmailBackend( host=host,port=host_port,  password=host_pass, username=host_user,  use_tls=True, timeout=60)
     email_template = get_template(email_template_name).render(context)
     email_msg = mail.EmailMessage(
             subject=subject,
