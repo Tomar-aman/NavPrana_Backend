@@ -1,4 +1,4 @@
-from django.db import models
+from django.db import models, transaction
 from decimal import Decimal
 from config import settings
 from django.utils.translation import gettext_lazy as _
@@ -390,6 +390,13 @@ class Order(models.Model):
     
     def mark_as_paid(self, transaction_id):
         """Mark order as paid and generate invoice"""
+        # Payment webhooks are retried by the gateway, so this can run more than
+        # once for the same order. Read the stored status before overwriting it
+        # so the customer emails only go out on the first successful call.
+        already_paid = self.pk and Order.objects.filter(
+            pk=self.pk, payment_status='paid'
+        ).exists()
+
         self.payment_status = 'paid'
         self.status = 'accepted'
         self.transaction_id = transaction_id
@@ -398,6 +405,9 @@ class Order(models.Model):
         
         # Generate invoice PDF
         self.generate_invoice()
+
+        if not already_paid:
+            self.send_payment_emails(transaction_id)
         
         # Record coupon usage if not already recorded
         if self.coupon:
@@ -416,6 +426,18 @@ class Order(models.Model):
                 self.coupon.save()
                 self.coupon.record_usage(self.user)
     
+    def send_payment_emails(self, transaction_id):
+        """Queue the payment confirmation and invoice emails for this order."""
+        from orders.tasks import send_payment_success_email, send_invoice_email
+
+        order_id = self.pk
+
+        def _dispatch():
+            send_payment_success_email.delay(order_id, transaction_id)
+            send_invoice_email.delay(order_id)
+
+        transaction.on_commit(_dispatch)
+
     def mark_as_failed(self):
         """Mark order as failed"""
         self.payment_status = 'failed'
