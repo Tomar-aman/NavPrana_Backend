@@ -113,7 +113,11 @@ class CashfreeCreateOrderAndPaymentView(APIView):
                             'total_amount': float(order.total_amount),
                             'discount_amount': float(order.discount_amount),
                             'tax_amount': float(order.tax_amount),
-                            'handling_fee': float(Order.COD_HANDLING_FEE),
+                            # This order's own fee, not whatever the setting
+                            # happens to say now — it was a class constant, so
+                            # the figure reported here could outrun the figure
+                            # actually charged.
+                            'handling_fee': float(order.handling_fee),
                             'final_amount': float(order.final_amount),
                             'currency': 'INR',
                             'items_count': order.items.count()

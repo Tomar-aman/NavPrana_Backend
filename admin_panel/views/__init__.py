@@ -15,6 +15,7 @@ from .crud import (
     ResourceExportView,
     ResourceListView,
     ResourceUpdateView,
+    SingletonListView,
 )
 from .dashboard import DashboardView
 from .orders import OrderDetailView, OrderStatusUpdateView
@@ -26,6 +27,17 @@ from .orders import OrderDetailView, OrderStatusUpdateView
 DETAIL_VIEW_OVERRIDES = {
     'orders': OrderDetailView,
 }
+
+#: Resources whose list page is not a list. Same reasoning as above.
+LIST_VIEW_OVERRIDES = {
+    'pricing': SingletonListView,
+}
+
+
+def resource_list(request, resource):
+    """Route to a resource's bespoke list view, or the generic table."""
+    view_class = LIST_VIEW_OVERRIDES.get(resource, ResourceListView)
+    return view_class.as_view()(request, resource=resource)
 
 
 def resource_detail(request, resource, pk):
@@ -50,6 +62,8 @@ __all__ = [
     'ResourceExportView',
     'ResourceListView',
     'ResourceUpdateView',
+    'SingletonListView',
     'UserSetPasswordView',
     'resource_detail',
+    'resource_list',
 ]

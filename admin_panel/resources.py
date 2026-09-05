@@ -13,7 +13,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.db.models import Count
 
-from api_settings.models import SMTPSettings
+from api_settings.models import PricingSettings, SMTPSettings
 from blogs.models import Blog, BlogCategory
 from cart.models import Cart
 from contact.models import (
@@ -33,12 +33,13 @@ from orders.models import Order
 from product.models import Category, Product, ProductReview
 from public_data.models import InstagramReel
 from transactions.models import TransactionLog
-from users.models import UserAddress
+from users.models import OTP, UserAddress
 
 from .actions import (
     activate_records,
     bulk_status_setter,
     deactivate_records,
+    delete_expired_otps,
     download_order_invoices,
 )
 from .columns import (
@@ -47,7 +48,13 @@ from .columns import (
     PAYMENT_STATUS_TONES,
     TRANSACTION_STATUS_TONES,
 )
-from .filters import BooleanFilter, ChoiceFilter, DateRangeFilter, RelationFilter
+from .filters import (
+    BooleanFilter,
+    ChoiceFilter,
+    DateRangeFilter,
+    ExpiryFilter,
+    RelationFilter,
+)
 from .forms import (
     PanelCouponForm,
     PanelGroupForm,
@@ -56,10 +63,14 @@ from .forms import (
     PanelSMTPSettingsForm,
     PanelUserForm,
 )
-from .registry import BulkAction, PanelResource, registry
+from .registry import BulkAction, DetailPanel, PanelResource, registry
 
 
 User = get_user_model()
+
+#: Tones for the derived OTP state column. A live code is a working credential,
+#: so it reads as the notable one; an expired code is inert history.
+OTP_STATE_TONES = {'Live': 'success', 'Expired': 'neutral'}
 
 
 def _distinct_payment_methods():
@@ -96,6 +107,31 @@ class UserResource(PanelResource):
     def object_title(self, obj):
         name = f'{obj.first_name} {obj.last_name}'.strip()
         return name or obj.email or f'User #{obj.pk}'
+
+
+class OTPResource(PanelResource):
+    """Verification codes, listed so support can see what a customer received."""
+
+    def object_title(self, obj):
+        # Deliberately not ``str(otp)``, which ends in the code itself: this
+        # title becomes the breadcrumb and the audit-log description, and a
+        # live code has no business being copied into either.
+        email = getattr(obj.user, 'email', '') or f'user #{obj.user_id}'
+        return f'OTP #{obj.pk} for {email}'
+
+
+class PricingSettingsResource(PanelResource):
+    """The storefront's fees and thresholds — one row, edited as a page."""
+
+    def base_queryset(self):
+        # ``load()`` creates the row with its model defaults the first time
+        # anybody opens this section, so a fresh install has something to edit
+        # rather than an empty list and a disabled Add button.
+        PricingSettings.load()
+        return PricingSettings.objects.all()
+
+    def object_title(self, obj):
+        return 'Pricing Settings'
 
 
 # ---------------------------------------------------------------------------
@@ -154,8 +190,10 @@ registry.register(
             BulkAction('download_invoices', 'Download invoices (single PDF)', download_order_invoices, permission='view'),
         ),
         help_text=(
-            'Totals are recalculated by the order model on every save, so they are '
-            'shown here but cannot be edited directly.'
+            'Every total is fixed when the order is placed, from the fees in '
+            'System → Pricing Settings. Changing those settings re-prices new '
+            'orders only, so the figures here cannot be edited and never move '
+            'under a customer who has already been quoted.'
         ),
         empty_message='No orders match these filters.',
     )
@@ -442,6 +480,62 @@ registry.register(
             'address_line1', 'address_line2', 'city', 'state', 'postal_code',
             'country', 'is_default', 'is_active',
         ),
+    )
+)
+
+registry.register(
+    OTPResource(
+        key='otps',
+        model=OTP,
+        group='Customers',
+        icon='key',
+        label='OTP',
+        label_plural='OTPs',
+        description='Verification codes issued to customers, newest first.',
+        # Codes are issued by the login and verification flows; one typed in
+        # here would not match anything the customer was ever sent, and editing
+        # one after the fact only breaks the record of what was.
+        can_add=False,
+        can_edit=False,
+        # No CSV: a spreadsheet of live codes is a file of working credentials,
+        # and this page exists to answer "what did this customer get", which is
+        # a lookup rather than a download.
+        can_export=False,
+        columns=(
+            Column('user.email', 'Customer', sort_field='user__email', is_link=True, truncate=30),
+            Column('otp_code', 'Code', css_class='cell-code'),
+            Column('state', 'State', kind='badge', sortable=False,
+                   accessor=lambda otp: 'Expired' if otp.is_expired() else 'Live',
+                   tones=OTP_STATE_TONES),
+            Column('created_at', 'Issued', kind='datetime'),
+            Column('expires_at', 'Expires', kind='datetime'),
+        ),
+        search_fields=(
+            'otp_code', 'user__email', 'user__first_name', 'user__last_name',
+            'user__phone_number',
+        ),
+        search_hint='Customer email, phone or the code itself',
+        filters=(
+            ExpiryFilter('state', 'State', field='expires_at'),
+            DateRangeFilter('issued', 'Issued', field='created_at'),
+        ),
+        select_related=('user',),
+        default_ordering='-created_at',
+        ordering_fields=('created_at', 'expires_at'),
+        per_page=50,
+        bulk_actions=(
+            BulkAction(
+                'purge_expired', 'Delete expired codes', delete_expired_otps,
+                permission='delete', tone='danger',
+                confirm='Delete the expired codes among the selected rows?',
+            ),
+        ),
+        help_text=(
+            'A code shown here is the one the customer was sent, so anybody who '
+            'can open this page can complete that customer’s login. Grant the '
+            '"Can view OTP" permission only to the people who handle support.'
+        ),
+        empty_message='No codes have been issued yet.',
     )
 )
 
@@ -888,6 +982,69 @@ registry.register(
         form_template='panel/crud/form_role.html',
         help_text='Roles reuse Django permissions, so they apply to both this panel and /admin/.',
         empty_message='No roles defined yet. Create one to delegate access without granting superuser.',
+    )
+)
+
+registry.register(
+    PricingSettingsResource(
+        key='pricing',
+        model=PricingSettings,
+        group='System',
+        icon='rupee',
+        label='Pricing settings',
+        label_plural='Pricing Settings',
+        description='COD handling, delivery charges and the prepaid discount.',
+        # One row, created on demand: adding a second set of prices would leave
+        # nothing to decide which of them the storefront should quote.
+        can_add=False,
+        can_delete=False,
+        can_export=False,
+        columns=(
+            Column('cod_handling_fee', 'COD handling', kind='currency', is_link=True),
+            Column('shipping_fee', 'Shipping', kind='currency'),
+            Column('free_shipping_threshold', 'Free above', kind='currency'),
+            Column('prepaid_discount_enabled', 'Prepaid reward', kind='bool'),
+            Column('prepaid_discount', 'Prepaid discount', kind='currency'),
+            Column('updated_at', 'Updated', kind='datetime'),
+        ),
+        default_ordering='pk',
+        form_fields=(
+            'cod_handling_fee', 'shipping_fee', 'free_shipping_threshold',
+            'prepaid_discount_enabled', 'prepaid_discount',
+        ),
+        fieldsets=(
+            ('Cash on delivery', ('cod_handling_fee',)),
+            ('Delivery', ('shipping_fee', 'free_shipping_threshold')),
+            ('Encourage online payment', ('prepaid_discount_enabled', 'prepaid_discount')),
+        ),
+        detail_panels=(
+            DetailPanel(
+                title='Cash on delivery',
+                columns=(Column('cod_handling_fee', 'COD handling fee', kind='currency', sortable=False),),
+            ),
+            DetailPanel(
+                title='Delivery',
+                columns=(
+                    Column('shipping_fee', 'Shipping fee', kind='currency', sortable=False),
+                    Column('free_shipping_threshold', 'Free shipping above', kind='currency', sortable=False),
+                ),
+            ),
+            DetailPanel(
+                title='Encourage online payment',
+                columns=(
+                    Column('prepaid_discount_enabled', 'Reward prepaid instead of charging COD', kind='bool', sortable=False),
+                    Column('prepaid_discount', 'Prepaid discount', kind='currency', sortable=False),
+                    Column('updated_at', 'Last updated', kind='datetime', sortable=False),
+                ),
+            ),
+        ),
+        help_text=(
+            'These figures are quoted at checkout and charged by the order. '
+            'A change applies to orders placed from now on — orders already '
+            'placed keep what their customer was quoted. The Shipping Policy '
+            'page states the free-delivery threshold in words, so update that '
+            'page too when you change it here.'
+        ),
     )
 )
 

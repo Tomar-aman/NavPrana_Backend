@@ -49,7 +49,11 @@ class OrderDetailView(ResourceDetailView):
                 ],
                 'status_tone': ORDER_STATUS_TONES.get(order.status, 'neutral'),
                 'payment_tone': PAYMENT_STATUS_TONES.get(order.payment_status, 'neutral'),
+                # Both are what this order was charged, read from its own
+                # columns rather than from today's Pricing Settings, so the
+                # breakdown always adds up to the total beside it.
                 'handling_fee': order.get_handling_fee(),
+                'prepaid_discount': order.prepaid_discount,
                 'tracking_url': order.tracking_url,
                 'courier_label': order.courier_label,
                 'status_choices': [
@@ -97,7 +101,8 @@ class OrderStatusUpdateView(View):
 
         previous = order.get_status_display()
         order.status = target
-        # Order.save() recalculates the money fields; that is expected here.
+        # Money is settled when the order is created and left alone afterwards,
+        # so this save moves the status and nothing else.
         order.save()
 
         log_change(request.user, order, ['status'])

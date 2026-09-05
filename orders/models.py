@@ -1,5 +1,6 @@
 from django.db import models, transaction
 from decimal import Decimal
+from api_settings.models import PricingSettings
 from config import settings
 from django.utils.translation import gettext_lazy as _
 from coupon.models import Coupon
@@ -8,10 +9,10 @@ from users.models import UserAddress
 from .couriers import COURIER_CHOICES, build_tracking_url, get_courier
 
 class Order(models.Model):
-    COD_HANDLING_FEE = Decimal('49.00')
-    SHIPPING_FEE = Decimal('50.00')
-    # Orders above this subtotal ship free (see the public Shipping Policy page)
-    FREE_SHIPPING_THRESHOLD = Decimal('599.00')
+    # Fees and thresholds used to live here as constants, with the storefront
+    # keeping its own copy of each — they had drifted apart once already. They
+    # now come from PricingSettings, which staff edit in the admin and the
+    # storefront reads over /api/v1/public/pricing/, so there is one number.
 
     STATUS_CHOICES = (
         ('pending', 'Pending'),
@@ -136,6 +137,25 @@ class Order(models.Model):
         help_text=_('Shipping charge applied to this order')
     )
 
+    # Both of these are snapshots taken when the order is created. They are
+    # stored rather than recomputed so that changing PricingSettings tomorrow
+    # cannot alter what a customer was charged today.
+    handling_fee = models.DecimalField(
+        _('handling fee'),
+        max_digits=10,
+        decimal_places=2,
+        default=0.00,
+        help_text=_('COD handling fee charged on this order, as it stood when the order was placed')
+    )
+
+    prepaid_discount = models.DecimalField(
+        _('prepaid discount'),
+        max_digits=10,
+        decimal_places=2,
+        default=0.00,
+        help_text=_('Discount given for paying online, as it stood when the order was placed')
+    )
+
     final_amount = models.DecimalField(
         _('final amount'),
         max_digits=10,
@@ -212,20 +232,45 @@ class Order(models.Model):
             return round((discounted_amount * self.tax_percentage) / 100)        
         return 0
     
-    def calculate_shipping(self):
+    def calculate_shipping(self, pricing=None):
         """
-        Shipping charge for this order.
+        Shipping charge for this order, against today's PricingSettings.
 
-        Free on an empty cart, above FREE_SHIPPING_THRESHOLD, or when the
-        applied coupon grants free shipping. Otherwise a flat SHIPPING_FEE.
+        Free on an empty cart, above the free shipping threshold, or when the
+        applied coupon grants free shipping. Otherwise the flat shipping fee.
         """
         if self.total_amount <= 0:
             return Decimal('0.00')
-        if self.total_amount > self.FREE_SHIPPING_THRESHOLD:
+        pricing = pricing or PricingSettings.load()
+        if self.total_amount > pricing.free_shipping_threshold:
             return Decimal('0.00')
         if self.coupon_id and getattr(self.coupon, 'free_shipping', False):
             return Decimal('0.00')
-        return self.SHIPPING_FEE
+        return pricing.shipping_fee
+
+    def calculate_handling_fee(self, pricing=None):
+        """
+        COD handling fee for this order, against today's PricingSettings.
+
+        Nothing is charged while the prepaid discount is running: that setting
+        moves the same gap onto the other side, and charging both would double
+        it behind the shopper's back.
+        """
+        if self.payment_method != 'cod':
+            return Decimal('0.00')
+        pricing = pricing or PricingSettings.load()
+        if pricing.prepaid_discount_enabled:
+            return Decimal('0.00')
+        return pricing.cod_handling_fee
+
+    def calculate_prepaid_discount(self, pricing=None):
+        """Discount for paying online, against today's PricingSettings."""
+        if self.payment_method == 'cod':
+            return Decimal('0.00')
+        pricing = pricing or PricingSettings.load()
+        if not pricing.prepaid_discount_enabled:
+            return Decimal('0.00')
+        return pricing.prepaid_discount
 
     def calculate_final_amount(self):
         """Calculate final amount after discount, shipping and fees"""
@@ -233,16 +278,20 @@ class Order(models.Model):
         final = Decimal(str(round(amount_after_discount)))
 
         final += self.shipping_fee
-        final += self.get_handling_fee()
+        final += self.handling_fee
+        final -= self.prepaid_discount
 
         # final = amount_after_discount + self.tax_amount
         return max(final, Decimal('0.00'))
 
     def get_handling_fee(self):
-        """Return handling fee based on payment method."""
-        if self.payment_method == 'cod':
-            return self.COD_HANDLING_FEE
-        return Decimal('0.00')
+        """
+        The handling fee this order was charged.
+
+        Reads the stored column, not the current settings — an order placed at
+        ₹49 stays a ₹49 order after the fee is raised.
+        """
+        return self.handling_fee
 
     @property
     def courier_label(self):
@@ -254,24 +303,53 @@ class Order(models.Model):
         """Courier's own tracking page for this AWB, or '' if unavailable."""
         return build_tracking_url(self.courier, self.awb_number)
 
+    def price(self):
+        """Work out every money column on this order from the current settings."""
+        # Fetched once and passed down: the three calculators below would
+        # otherwise each read the settings row separately, and an order priced
+        # across a staff member's save could take two figures from either side
+        # of the change.
+        pricing = PricingSettings.load()
+
+        self.discount_amount = self.calculate_discount()
+        self.tax_amount = self.calculate_tax()
+        # Shipping, handling and the prepaid discount all feed the final
+        # amount, so they have to be settled before it is worked out.
+        self.shipping_fee = self.calculate_shipping(pricing)
+        self.handling_fee = self.calculate_handling_fee(pricing)
+        self.prepaid_discount = self.calculate_prepaid_discount(pricing)
+        self.final_amount = self.calculate_final_amount()
+
+    def reprice(self, save=True):
+        """
+        Deliberately re-price an order against today's settings.
+
+        The escape hatch for an order that has genuinely changed — never call
+        it on one the customer has already paid or been quoted, which is the
+        whole reason save() stopped doing this on its own.
+        """
+        self.price()
+        if save:
+            self.save(update_fields=[
+                'discount_amount', 'tax_amount', 'shipping_fee',
+                'handling_fee', 'prepaid_discount', 'final_amount', 'updated_at',
+            ])
+
     def save(self, *args, **kwargs):
         if self.awb_number:
             self.awb_number = self.awb_number.strip().upper()
 
-        # Calculate discount
-        self.discount_amount = self.calculate_discount()
-        
-        # Calculate tax
-        self.tax_amount = self.calculate_tax()
+        # Pricing is settled once, as the order is first written. Every save
+        # after that is a status, tracking or transaction-id update, and
+        # re-running the sums there would quietly re-price a placed order
+        # against whatever the fees have since been changed to — mark_as_paid,
+        # mark_as_shipped and the Cashfree webhooks all save existing orders.
+        # Use reprice() when a recalculation is genuinely what you want.
+        if self._state.adding:
+            self.price()
 
-        # Calculate shipping (must run before final amount)
-        self.shipping_fee = self.calculate_shipping()
-
-        # Calculate final amount
-        self.final_amount = self.calculate_final_amount()
-        
         super().save(*args, **kwargs)
-    
+
     @classmethod
     def create_order(
         cls,

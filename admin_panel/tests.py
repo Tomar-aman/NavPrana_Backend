@@ -5,18 +5,21 @@ Focused on the parts that would be expensive to get wrong: access control,
 the model-specific form rules, and the query budget of the list pages.
 """
 
+from datetime import timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
+from api_settings.models import PricingSettings
 from orders.models import Order, OrderItem
 from product.models import Category, Product
-from users.models import UserAddress
+from users.models import OTP, UserAddress
 
-from .filters import BooleanFilter, ChoiceFilter, DateRangeFilter
+from .filters import BooleanFilter, ChoiceFilter, DateRangeFilter, ExpiryFilter
 from .registry import registry
 
 
@@ -99,7 +102,10 @@ class PanelAccessTests(TestCase):
         self.client.force_login(self.superuser)
         for resource in registry:
             with self.subTest(resource=resource.key):
-                self.assertEqual(self.client.get(resource.url('list')).status_code, 200)
+                # follow=True so a single-row section, which opens its record
+                # instead of listing it, still has to render something.
+                response = self.client.get(resource.url('list'), follow=True)
+                self.assertEqual(response.status_code, 200)
 
 
 class SecretExposureTests(TestCase):
@@ -225,6 +231,38 @@ class OrderFulfilmentTests(TestCase):
         for name in ('final_amount', 'total_amount', 'discount_amount', 'shipping_fee'):
             self.assertNotContains(response, f'name="{name}"')
 
+    def test_the_detail_page_shows_what_the_order_was_charged(self):
+        """The money card has to account for every rupee in the total."""
+        pricing = PricingSettings.load()
+        pricing.prepaid_discount_enabled = True
+        pricing.prepaid_discount = Decimal('30.00')
+        pricing.save()
+
+        prepaid = Order.objects.create(
+            user=self.customer, address=self.address,
+            total_amount=Decimal('400.00'), payment_method='cashfree',
+        )
+        response = self.client.get(registry.get('orders').url('detail', prepaid.pk))
+        self.assertContains(response, 'Prepaid discount')
+        self.assertContains(response, '30.00')
+        self.assertEqual(prepaid.final_amount, Decimal('420.00'))  # 400 + 50 shipping - 30
+
+    def test_the_detail_page_shows_the_cod_fee_the_order_was_quoted(self):
+        cod = Order.objects.create(
+            user=self.customer, address=self.address,
+            total_amount=Decimal('400.00'), payment_method='cod',
+        )
+        # Raising the fee afterwards must not change what this page reports.
+        pricing = PricingSettings.load()
+        pricing.cod_handling_fee = Decimal('99.00')
+        pricing.save()
+
+        response = self.client.get(registry.get('orders').url('detail', cod.pk))
+        self.assertContains(response, 'COD handling')
+        self.assertContains(response, '₹49.00')
+        cod.refresh_from_db()
+        self.assertEqual(cod.handling_fee, Decimal('49.00'))
+
     def test_shipping_requires_a_tracking_number(self):
         url = registry.get('orders').url('edit', self.order.pk)
         response = self.client.post(url, {
@@ -275,6 +313,167 @@ class OrderFulfilmentTests(TestCase):
             {'status': 'processing', 'next': 'https://evil.example.com/'},
         )
         self.assertFalse(response['Location'].startswith('http'))
+
+
+class PricingSettingsPanelTests(TestCase):
+    """One row, edited as a page, and only ever applied to new orders."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.superuser = User.objects.create_superuser('root@example.com', 'pw-Str0ng!123')
+        cls.viewer = User.objects.create_user('viewer@example.com', 'pw-Str0ng!123')
+        cls.viewer.is_active = True
+        cls.viewer.is_staff = True
+        cls.viewer.save()
+        role = Group.objects.create(name='Pricing viewer')
+        role.permissions.add(
+            *Permission.objects.filter(
+                content_type__app_label='api_settings', codename='view_pricingsettings'
+            )
+        )
+        cls.viewer.groups.add(role)
+
+    def test_the_section_opens_the_row_rather_than_listing_it(self):
+        self.client.force_login(self.superuser)
+        response = self.client.get(registry.get('pricing').url('list'))
+        settings_row = PricingSettings.load()
+        self.assertRedirects(response, registry.get('pricing').url('edit', settings_row.pk))
+
+    def test_a_view_only_staffer_lands_on_the_read_only_page(self):
+        self.client.force_login(self.viewer)
+        response = self.client.get(registry.get('pricing').url('list'))
+        settings_row = PricingSettings.load()
+        self.assertRedirects(response, registry.get('pricing').url('detail', settings_row.pk))
+
+    def test_the_row_cannot_be_added_to_or_deleted(self):
+        resource = registry.get('pricing')
+        self.assertFalse(resource.can_add)
+        self.assertFalse(resource.can_delete)
+        self.client.force_login(self.superuser)
+        self.assertEqual(self.client.get(resource.url('add')).status_code, 403)
+        self.assertEqual(
+            self.client.get(resource.url('delete', PricingSettings.load().pk)).status_code, 403
+        )
+
+    def test_editing_the_fees_prices_the_next_order(self):
+        self.client.force_login(self.superuser)
+        settings_row = PricingSettings.load()
+        response = self.client.post(registry.get('pricing').url('edit', settings_row.pk), {
+            'cod_handling_fee': '25.00',
+            'shipping_fee': '60.00',
+            'free_shipping_threshold': '999.00',
+            'prepaid_discount': '0.00',
+        })
+        self.assertEqual(response.status_code, 302)
+
+        settings_row.refresh_from_db()
+        self.assertEqual(settings_row.cod_handling_fee, Decimal('25.00'))
+        # The singleton stays a singleton however it is saved.
+        self.assertEqual(PricingSettings.objects.count(), 1)
+
+        customer = User.objects.create_user('buyer@example.com', 'pw-Str0ng!123')
+        order = Order.objects.create(
+            user=customer, total_amount=Decimal('900.00'), payment_method='cod'
+        )
+        self.assertEqual(order.handling_fee, Decimal('25.00'))
+        self.assertEqual(order.shipping_fee, Decimal('60.00'))
+        self.assertEqual(order.final_amount, Decimal('985.00'))
+
+    def test_a_placed_order_keeps_the_fee_it_was_quoted(self):
+        customer = User.objects.create_user('buyer2@example.com', 'pw-Str0ng!123')
+        order = Order.objects.create(
+            user=customer, total_amount=Decimal('900.00'), payment_method='cod'
+        )
+        original_fee, original_total = order.handling_fee, order.final_amount
+
+        self.client.force_login(self.superuser)
+        self.client.post(registry.get('pricing').url('edit', PricingSettings.load().pk), {
+            'cod_handling_fee': '199.00',
+            'shipping_fee': '50.00',
+            'free_shipping_threshold': '599.00',
+            'prepaid_discount': '0.00',
+        })
+
+        # A later save of the order (a status change, say) must not re-price it.
+        order.status = 'processing'
+        order.save()
+        order.refresh_from_db()
+        self.assertEqual(order.handling_fee, original_fee)
+        self.assertEqual(order.final_amount, original_total)
+
+    def test_a_prepaid_discount_of_zero_is_rejected_while_it_is_switched_on(self):
+        self.client.force_login(self.superuser)
+        response = self.client.post(registry.get('pricing').url('edit', PricingSettings.load().pk), {
+            'cod_handling_fee': '49.00',
+            'shipping_fee': '50.00',
+            'free_shipping_threshold': '599.00',
+            'prepaid_discount_enabled': 'on',
+            'prepaid_discount': '0.00',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Set a discount above 0')
+        self.assertFalse(PricingSettings.load().prepaid_discount_enabled)
+
+
+class OTPPanelTests(TestCase):
+    """Support can look a code up; the page does not become a credential feed."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.superuser = User.objects.create_superuser('root@example.com', 'pw-Str0ng!123')
+        cls.customer = User.objects.create_user('buyer@example.com', 'pw-Str0ng!123')
+        now = timezone.now()
+        cls.live = OTP.objects.create(
+            user=cls.customer, otp_code='112233', expires_at=now + timedelta(minutes=10)
+        )
+        cls.stale = OTP.objects.create(
+            user=cls.customer, otp_code='445566', expires_at=now - timedelta(minutes=10)
+        )
+        cls.undated = OTP.objects.create(user=cls.customer, otp_code='778899')
+
+    def setUp(self):
+        self.client.force_login(self.superuser)
+
+    def test_the_list_shows_the_code_and_its_state(self):
+        response = self.client.get(registry.get('otps').url('list'))
+        self.assertContains(response, '112233')
+        self.assertContains(response, 'Live')
+        self.assertContains(response, 'Expired')
+
+    def test_a_code_can_be_searched_for(self):
+        response = self.client.get(registry.get('otps').url('list') + '?q=445566')
+        self.assertContains(response, '445566')
+        self.assertNotContains(response, '112233')
+
+    def test_the_state_filter_treats_a_missing_expiry_as_expired(self):
+        expiry = ExpiryFilter('state', 'State', field='expires_at')
+        live = expiry.apply(OTP.objects.all(), {'state': 'live'})
+        expired = expiry.apply(OTP.objects.all(), {'state': 'expired'})
+        self.assertEqual(list(live), [self.live])
+        self.assertCountEqual(expired, [self.stale, self.undated])
+
+    def test_codes_are_neither_created_nor_edited_here(self):
+        resource = registry.get('otps')
+        self.assertEqual(self.client.get(resource.url('add')).status_code, 403)
+        self.assertEqual(self.client.get(resource.url('edit', self.live.pk)).status_code, 403)
+
+    def test_the_list_cannot_be_exported(self):
+        self.assertFalse(registry.get('otps').can_export)
+        self.assertEqual(self.client.get(registry.get('otps').url('export')).status_code, 403)
+
+    def test_purging_expired_codes_leaves_the_live_one(self):
+        response = self.client.post(registry.get('otps').url('list'), {
+            'action': 'purge_expired',
+            'selected': [self.live.pk, self.stale.pk, self.undated.pk],
+        }, follow=True)
+        self.assertContains(response, '2 expired codes deleted')
+        self.assertEqual(list(OTP.objects.all()), [self.live])
+
+    def test_the_page_title_does_not_repeat_the_code(self):
+        """The title becomes a breadcrumb and an audit-log line; codes stay out."""
+        title = registry.get('otps').object_title(self.live)
+        self.assertIn('buyer@example.com', title)
+        self.assertNotIn('112233', title)
 
 
 class ListQueryBudgetTests(TestCase):

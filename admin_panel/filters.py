@@ -265,6 +265,56 @@ class DateRangeFilter(BaseFilter):
         }
 
 
+class ExpiryFilter(BaseFilter):
+    """Live / expired over an expiry timestamp.
+
+    A row whose expiry is NULL counts as expired, matching what the models
+    using this field already decide — ``OTP.is_expired()`` treats a missing
+    timestamp as no longer valid, and a filter that disagreed with the column
+    printed beside it would be worse than no filter at all.
+    """
+
+    def __init__(
+        self,
+        param: str,
+        label: str,
+        field: str = '',
+        live_label: str = 'Live',
+        expired_label: str = 'Expired',
+        blank_label: str = 'All',
+    ):
+        super().__init__(param, label, field)
+        self.live_label = live_label
+        self.expired_label = expired_label
+        self.blank_label = blank_label
+
+    def apply(self, queryset: QuerySet, params) -> QuerySet:
+        value = self.raw_value(params)
+        now = timezone.now()
+        if value == 'live':
+            return queryset.filter(**{f'{self.field}__gt': now})
+        if value == 'expired':
+            return queryset.filter(
+                Q(**{f'{self.field}__lte': now}) | Q(**{f'{self.field}__isnull': True})
+            )
+        return queryset
+
+    def context(self, params) -> dict:
+        current = self.raw_value(params)
+        options = [
+            FilterOption('', self.blank_label, not current),
+            FilterOption('live', self.live_label, current == 'live'),
+            FilterOption('expired', self.expired_label, current == 'expired'),
+        ]
+        return {
+            'template': self.template,
+            'param': self.param,
+            'label': self.label,
+            'options': options,
+            'value': current,
+        }
+
+
 def build_search_q(term: str, search_fields: Sequence[str]) -> Q:
     """OR ``icontains`` across ``search_fields`` for every whitespace token.
 

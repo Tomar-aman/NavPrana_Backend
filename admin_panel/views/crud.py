@@ -14,7 +14,7 @@ from django.contrib import messages
 from django.contrib.admin.utils import NestedObjects
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import router
-from django.http import HttpResponse, StreamingHttpResponse
+from django.http import Http404, HttpResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
 from django.views.generic import DetailView, ListView, TemplateView, View
@@ -225,6 +225,27 @@ class ResourceListView(FilteredQuerysetMixin, ResourceViewMixin, ListView):
 
         messages.success(request, result or f'"{action.label}" completed.')
         return redirect(back)
+
+
+class SingletonListView(ResourceViewMixin, View):
+    """List page for a resource that only ever holds one row.
+
+    A settings model has nothing to list: a table of exactly one row, with a
+    search box and a pagination bar around it, is two clicks of ceremony in
+    front of the only thing anyone came for. So the section opens the row
+    itself — the edit form for staff who may change it, the read-only detail
+    page for everyone else.
+    """
+
+    required_verb = 'view'
+
+    def get(self, request, *args, **kwargs):
+        resource = self.resource
+        obj = resource.get_queryset().first()
+        if obj is None:
+            raise Http404(f'{resource.label_plural} has no record to open.')
+        action = 'edit' if resource.user_can(request.user, 'change') else 'detail'
+        return redirect(resource.url(action, obj.pk))
 
 
 class ResourceDetailView(ResourceViewMixin, DetailView):

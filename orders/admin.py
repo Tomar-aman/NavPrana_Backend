@@ -18,15 +18,19 @@ class OrderItemInline(admin.TabularInline):
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'status', 'courier', 'awb_number', 'final_amount', 'total_amount', 'created_at', 'updated_at')
+    list_display = ('id', 'user', 'status', 'payment_method', 'courier', 'awb_number', 'final_amount', 'handling_fee', 'total_amount', 'created_at', 'updated_at')
     list_filter = ('status', 'courier', 'created_at', 'updated_at')
     search_fields = ('user__email', 'user__first_name', 'user__last_name', 'id', 'awb_number')
-    readonly_fields = ('created_at', 'updated_at', 'track_link')
+    # handling_fee and prepaid_discount are snapshots of what this order was
+    # charged. They are shown because the totals do not add up without them,
+    # and kept read-only because editing one would leave final_amount stating a
+    # different sum from the rows above it.
+    readonly_fields = ('created_at', 'updated_at', 'track_link', 'handling_fee', 'prepaid_discount')
     ordering = ('-created_at',)
     date_hierarchy = 'created_at'
     actions = ('download_all_invoices_single_pdf',)
     fieldsets = (
-        (None, {'fields': ('user','address', 'status','payment_status' , 'payment_method' , 'final_amount', 'total_amount','tax_percentage','tax_amount', 'shipping_fee', 'discount_amount',  'coupon', 'transaction_id','invoice',)}),
+        (None, {'fields': ('user','address', 'status','payment_status' , 'payment_method' , 'final_amount', 'total_amount','tax_percentage','tax_amount', 'shipping_fee', 'handling_fee', 'prepaid_discount', 'discount_amount',  'coupon', 'transaction_id','invoice',)}),
         ('Shipping', {'fields': ('courier', 'awb_number', 'track_link')}),
         ('Timestamps', {'fields': ('created_at', 'updated_at')}),
     )
