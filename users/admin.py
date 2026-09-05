@@ -34,12 +34,21 @@ class UserAddressAdmin(admin.ModelAdmin):
 
 @admin.register(OTP)
 class OTPAdmin(admin.ModelAdmin):
-    list_display = ('user', 'otp_code', 'created_at', 'expires_at')
+    list_display = ('user', 'otp_code', 'is_live', 'created_at', 'expires_at')
     list_filter = ('created_at', 'expires_at')
-    search_fields = ('user__email', 'otp_code')
+    search_fields = ('user__email', 'user__phone_number', 'otp_code')
     ordering = ('-created_at',)
     readonly_fields = ('created_at', 'expires_at')
     fieldsets = (
         (None, {'fields': ('user', 'otp_code')}),
         ('Timestamps', {'fields': ('created_at', 'expires_at')}),
     )
+
+    @admin.display(description='Live', boolean=True)
+    def is_live(self, obj):
+        """Whether this code would still be accepted right now.
+
+        Without it the list is two timestamps the reader has to compare against
+        the clock, which is the one question anybody opens this page to ask.
+        """
+        return not obj.is_expired()

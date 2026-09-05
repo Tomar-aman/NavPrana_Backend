@@ -254,6 +254,7 @@ class OrderDetailSerializer(serializers.ModelSerializer):
             'tax_amount',
             'shipping_fee',
             'handling_fee',
+            'prepaid_discount',
             'final_amount',
             'transaction_id',
             'invoice_url',
@@ -297,7 +298,13 @@ class OrderDetailSerializer(serializers.ModelSerializer):
         return None
 
     def get_handling_fee(self, obj):
-        """Return COD handling fee, else zero."""
+        """
+        The handling fee this order was charged.
+
+        Reads the order's own stored figure, so an order placed when the fee
+        was ₹20 still reports ₹20 after it is raised — the breakdown has to
+        keep adding up to the final_amount sitting beside it.
+        """
         return float(obj.get_handling_fee())
 
 

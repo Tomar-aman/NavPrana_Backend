@@ -285,10 +285,12 @@ class PanelProductForm(PanelFormMixin, forms.ModelForm):
 class PanelOrderForm(PanelFormMixin, forms.ModelForm):
     """Fulfilment editor.
 
-    Deliberately excludes every money field: ``Order.save()`` recalculates
-    ``discount_amount``, ``tax_amount``, ``shipping_fee`` and ``final_amount``
-    from the coupon and subtotal on each write, so anything typed into them is
-    silently discarded. Editing them would only mislead.
+    Deliberately excludes every money field. An order prices itself once, as it
+    is created, from the coupon, the subtotal and the fees in ``PricingSettings``;
+    from then on the figures are a record of what the customer was quoted and
+    charged. Offering them for editing here would invite someone to change what
+    a paid order says it cost, and ``Order.reprice()`` is the deliberate way to
+    re-run the sums when that is genuinely wanted.
     """
 
     class Meta:

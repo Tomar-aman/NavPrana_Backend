@@ -408,6 +408,7 @@ address { font-style: normal; }
 .thumb--empty { display: inline-flex; align-items: center; justify-content: center; color: var(--text-faint); }
 
 .cell-title { font-weight: 550; }
+.cell-code { font-family: var(--mono); letter-spacing: 0.08em; }
 
 /* Cards ------------------------------------------------------------------ */
 

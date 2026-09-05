@@ -34,7 +34,7 @@ urlpatterns = [
     path('users/<int:pk>/set-password/', views.UserSetPasswordView.as_view(), name='user_set_password'),
 
     # Generic resource CRUD
-    path('<slug:resource>/', views.ResourceListView.as_view(), name='resource_list'),
+    path('<slug:resource>/', views.resource_list, name='resource_list'),
     path('<slug:resource>/export/', views.ResourceExportView.as_view(), name='resource_export'),
     path('<slug:resource>/new/', views.ResourceCreateView.as_view(), name='resource_add'),
     path('<slug:resource>/<int:pk>/', views.resource_detail, name='resource_detail'),

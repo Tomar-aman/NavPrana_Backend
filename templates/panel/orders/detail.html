@@ -96,12 +96,20 @@
           {% if handling_fee %}
             <div><dt>COD handling</dt><dd>{{ handling_fee|rupees }}</dd></div>
           {% endif %}
+          {% if prepaid_discount %}
+            <div><dt>Prepaid discount</dt>
+                <dd class="totals__minus">−{{ prepaid_discount|rupees }}</dd></div>
+          {% endif %}
           {% if object.tax_amount %}
             <div><dt>Tax ({{ object.tax_percentage|floatformat:"-2" }}%)</dt><dd>{{ object.tax_amount|rupees }}</dd></div>
           {% endif %}
           <div class="totals__grand"><dt>Total</dt><dd>{{ object.final_amount|rupees }}</dd></div>
         </dl>
-        <p class="card__note">Paid by {{ object.get_payment_method_display }}.</p>
+        <p class="card__note">
+          Paid by {{ object.get_payment_method_display }}. These figures were fixed
+          when the order was placed and do not follow later changes to
+          System → Pricing Settings.
+        </p>
       </section>
 
       <section class="card">
