@@ -185,18 +185,23 @@ class SpinWheelSpinView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Weighted wheel choices
+        # Weighted wheel choices.
+        # NOTE: free_500ml stays defined (and is still drawn on the frontend wheel)
+        # but carries weight 0, so it is never selected and no NAV-FREE500 coupon
+        # is ever issued. Raise the weight to re-enable the giveaway.
         prizes = [
-            {"id": "free_500ml", "name": "Free Product 500ml", "weight": 10},
-            {"id": "discount_10", "name": "10% OFF", "weight": 25},
+            {"id": "free_500ml", "name": "Free Product 500ml", "weight": 0},
+            {"id": "discount_10", "name": "10% OFF", "weight": 10},
             {"id": "discount_100", "name": "₹100 OFF", "weight": 15},
             {"id": "free_shipping", "name": "Free Shipping", "weight": 25},
             {"id": "discount_50", "name": "₹50 OFF", "weight": 20},
-            {"id": "try_again", "name": "Try Again", "weight": 5},
+            {"id": "try_again", "name": "Try Again", "weight": 30},
         ]
         
         choices = []
         for p in prizes:
+            if p["weight"] <= 0:
+                continue
             choices.extend([p] * p["weight"])
         
         won_prize = random.choice(choices)
