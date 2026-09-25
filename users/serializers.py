@@ -1,8 +1,5 @@
 from rest_framework import serializers
 from users.models import User, OTP, UserAddress
-from django.utils import timezone
-import random
-from datetime import timedelta
 from users.tasks import send_otp_email
 import requests
 from django.core.files.base import ContentFile
@@ -54,21 +51,14 @@ class SignupSerializer(serializers.ModelSerializer):
             user.save()
 
         # Generate and save OTP
-        otp_code = str(random.randint(100000, 999999))
-        OTP.objects.update_or_create(
-            user=user,
-            defaults={
-                'otp_code': otp_code,
-                'expires_at': timezone.now() + timedelta(minutes=10)
-            }
-        )
+        otp = OTP.issue_for(user)
 
         # Send OTP
         send_otp_email.delay(
             subject="Your OTP Code",
             template_name="email/otp_email.html",
             user_id=user.id,
-            otp_code=otp_code,
+            otp_code=otp.otp_code,
         )
 
         return user
@@ -98,6 +88,7 @@ class OTPVerificationSerializer(serializers.Serializer):
     def _get_valid_otp(self, user, otp_code):
         otp = OTP.objects.filter(user=user, otp_code=otp_code).order_by('-created_at').first()
         if not otp:
+            OTP.record_failed_attempt(user)
             raise serializers.ValidationError({
                 'otp': "Invalid OTP."
             })
@@ -127,14 +118,12 @@ class ResendOTPSerializer(serializers.Serializer):
     def save(self, **kwargs):
         try:
             user = User.objects.get(email=self.validated_data['email'])
-            # otp_code = ''.join(random.choices('0123456789', k=6))
-            otp_code = str(random.randint(100000, 999999))
-            otp = OTP.objects.create(user=user, otp_code=otp_code, expires_at=timezone.now() + timedelta(minutes=10))
+            otp = OTP.issue_for(user)
             send_otp_email.delay(
                 subject="Your New OTP Code",
                 template_name="email/resend_otp_email.html",
                 user_id=user.id,
-                otp_code=otp_code,
+                otp_code=otp.otp_code,
             )
             return otp
         except User.DoesNotExist:
@@ -183,14 +172,12 @@ class ForgotPasswordOTPSerializer(serializers.Serializer):
     def save(self, **kwargs):
         try:
             user = User.objects.get(email=self.validated_data['email'])
-            # otp_code = ''.join(random.choices('0123456789', k=6))
-            otp_code = str(random.randint(100000, 999999))
-            otp = OTP.objects.create(user=user, otp_code=otp_code, expires_at=timezone.now() + timedelta(minutes=10))
+            otp = OTP.issue_for(user)
             send_otp_email.delay(
                 subject="Reset Your Password - OTP Code",
                 template_name="email/forgot_password_otp.html",
                 user_id=user.id,
-                otp_code=otp_code,
+                otp_code=otp.otp_code,
             )
             return otp
         except User.DoesNotExist:
@@ -206,6 +193,7 @@ class ForgotPasswordOtpVerifySerializer(serializers.Serializer):
             raise serializers.ValidationError({"email":"User not found."})
         otp = OTP.objects.filter(user=user, otp_code=attrs['otp']).order_by('-created_at').first()
         if not otp:
+            OTP.record_failed_attempt(user)
             raise serializers.ValidationError({
                 'otp': "Invalid OTP."
             })

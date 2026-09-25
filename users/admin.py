@@ -34,13 +34,14 @@ class UserAddressAdmin(admin.ModelAdmin):
 
 @admin.register(OTP)
 class OTPAdmin(admin.ModelAdmin):
-    list_display = ('user', 'otp_code', 'is_live', 'created_at', 'expires_at')
+    list_display = ('user', 'otp_code', 'is_live', 'send_count', 'attempt_count', 'created_at', 'expires_at')
     list_filter = ('created_at', 'expires_at')
     search_fields = ('user__email', 'user__phone_number', 'otp_code')
     ordering = ('-created_at',)
-    readonly_fields = ('created_at', 'expires_at')
+    readonly_fields = ('created_at', 'expires_at', 'send_count', 'attempt_count')
     fieldsets = (
         (None, {'fields': ('user', 'otp_code')}),
+        ('Attempts', {'fields': ('send_count', 'attempt_count')}),
         ('Timestamps', {'fields': ('created_at', 'expires_at')}),
     )
 
