@@ -1,4 +1,8 @@
-from django.db import models
+import random
+from datetime import timedelta
+
+from django.db import models, transaction
+from django.db.models import F
 from django.contrib.auth.models import AbstractUser
 from django.utils.translation import gettext_lazy as _
 from users.managers import UserManager
@@ -200,6 +204,16 @@ class OTP(models.Model):
         blank=True,
         help_text=_('Expiration time for the OTP code')
     )
+    send_count = models.PositiveIntegerField(
+        _('send count'),
+        default=1,
+        help_text=_('How many codes have been issued to this user in the current cycle')
+    )
+    attempt_count = models.PositiveIntegerField(
+        _('failed attempts'),
+        default=0,
+        help_text=_('How many wrong codes have been submitted against this OTP')
+    )
 
     class Meta:
         verbose_name = _('OTP')
@@ -214,3 +228,40 @@ class OTP(models.Model):
         """
         from django.utils import timezone
         return timezone.now() > self.expires_at if self.expires_at else True
+
+    @classmethod
+    def issue_for(cls, user, ttl_minutes=10):
+        """
+        Replace any code this user already holds with a fresh one.
+
+        Every OTP path goes through here so a user never accumulates more than
+        one live code. Signup used to call update_or_create while resend and
+        forgot-password called create, so rows piled up until the next signup
+        raised MultipleObjectsReturned.
+        """
+        from django.utils import timezone
+
+        with transaction.atomic():
+            # The row is about to be deleted, so carry its tally forward or the
+            # resend count would reset to 1 on every resend.
+            previous = cls.objects.select_for_update().filter(
+                user=user
+            ).order_by('-created_at').first()
+            send_count = previous.send_count + 1 if previous else 1
+
+            cls.objects.filter(user=user).delete()
+            return cls.objects.create(
+                user=user,
+                otp_code=str(random.randint(100000, 999999)),
+                expires_at=timezone.now() + timedelta(minutes=ttl_minutes),
+                send_count=send_count,
+            )
+
+    @classmethod
+    def record_failed_attempt(cls, user):
+        """
+        Count one wrong code against this user's live OTP.
+
+        F() keeps concurrent submissions from losing an increment.
+        """
+        cls.objects.filter(user=user).update(attempt_count=F('attempt_count') + 1)

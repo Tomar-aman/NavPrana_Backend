@@ -507,6 +507,8 @@ registry.register(
             Column('state', 'State', kind='badge', sortable=False,
                    accessor=lambda otp: 'Expired' if otp.is_expired() else 'Live',
                    tones=OTP_STATE_TONES),
+            Column('send_count', 'Sends', kind='number'),
+            Column('attempt_count', 'Failed tries', kind='number'),
             Column('created_at', 'Issued', kind='datetime'),
             Column('expires_at', 'Expires', kind='datetime'),
         ),
@@ -521,7 +523,7 @@ registry.register(
         ),
         select_related=('user',),
         default_ordering='-created_at',
-        ordering_fields=('created_at', 'expires_at'),
+        ordering_fields=('created_at', 'expires_at', 'send_count', 'attempt_count'),
         per_page=50,
         bulk_actions=(
             BulkAction(
