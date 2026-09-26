@@ -14,12 +14,12 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.models import Group, Permission
 from django.core.exceptions import ValidationError
-from django.forms import modelform_factory
+from django.forms import inlineformset_factory, modelform_factory
 from django.utils.translation import gettext_lazy as _
 
 from api_settings.models import SMTPSettings
 from coupon.models import Coupon
-from orders.models import Order
+from orders.models import Order, OrderItem
 from product.models import Product
 
 
@@ -314,6 +314,61 @@ class PanelOrderForm(PanelFormMixin, forms.ModelForm):
         if cleaned.get('status') in ('shipped', 'delivered') and not awb:
             self.add_error('awb_number', _('Add courier and tracking details before marking an order shipped.'))
         return cleaned
+
+
+class PanelOrderItemForm(PanelFormMixin, forms.ModelForm):
+    """One line of the order's item editor.
+
+    ``price`` is deliberately not offered. It is the figure the product
+    carried when the line was written, and a free-text box here would turn
+    every corrected order into a hand-priced one with nothing recording why.
+    Swapping the product re-reads that price instead — see :meth:`save`.
+    """
+
+    class Meta:
+        model = OrderItem
+        fields = ('product', 'quantity')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['product'].queryset = Product.objects.order_by('name')
+        self.fields['quantity'].widget.attrs.update({'min': '1', 'step': '1'})
+
+        if self.instance.pk is None:
+            # The spare "add a line" row. OrderItem.quantity defaults to 1, so
+            # without this the box renders pre-filled, an untouched row counts
+            # as changed, and the formset then demands a product for it.
+            self.initial['quantity'] = None
+
+    def clean_quantity(self):
+        quantity = self.cleaned_data.get('quantity')
+        # OrderItem.save() raises ValueError on a non-positive quantity, which
+        # would surface as a 500 rather than a message against the field.
+        if quantity is not None and quantity < 1:
+            raise ValidationError(_('Quantity must be at least 1.'))
+        return quantity
+
+    def save(self, commit=True):
+        item = super().save(commit=False)
+        # A new line, or one whose product was swapped, takes that product's
+        # current price. A quantity-only edit keeps the price the customer was
+        # actually quoted at checkout.
+        if item.pk is None or 'product' in self.changed_data:
+            item.price = item.product.price
+        if commit:
+            item.save()
+        return item
+
+
+#: Item editor for one order. ``extra=1`` keeps a blank row on the page so a
+#: product can be added without a separate "add line" round trip.
+PanelOrderItemFormSet = inlineformset_factory(
+    Order,
+    OrderItem,
+    form=PanelOrderItemForm,
+    extra=1,
+    can_delete=True,
+)
 
 
 class PanelCouponForm(PanelFormMixin, forms.ModelForm):

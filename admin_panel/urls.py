@@ -27,8 +27,11 @@ urlpatterns = [
     path('account/', views.PanelProfileView.as_view(), name='profile'),
     path('account/password/', views.PanelPasswordChangeView.as_view(), name='password_change'),
 
-    # Order-specific action
+    # Order-specific actions, all posted from the order detail page
     path('orders/<int:pk>/status/', views.OrderStatusUpdateView.as_view(), name='order_status'),
+    path('orders/<int:pk>/items/', views.OrderItemsUpdateView.as_view(), name='order_items'),
+    path('orders/<int:pk>/payment-method/', views.OrderPaymentMethodUpdateView.as_view(),
+         name='order_payment_method'),
 
     # User-specific action
     path('users/<int:pk>/set-password/', views.UserSetPasswordView.as_view(), name='user_set_password'),

@@ -8,11 +8,13 @@ shipping address and the payment attempts together on one screen.
 
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
+from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.views.generic import View
 
 from ..audit import log_change
+from ..forms import PanelOrderItemFormSet
 from ..columns import ORDER_STATUS_TONES, PAYMENT_STATUS_TONES, TRANSACTION_STATUS_TONES
 from ..metrics import invalidate_alerts
 from ..utils import safe_redirect_target
@@ -61,21 +63,32 @@ class OrderDetailView(ResourceDetailView):
                     for value, label in order.STATUS_CHOICES
                 ],
                 'quick_status_url': reverse('admin_panel:order_status', args=[order.pk]),
+                # The contents and the payment method are only offered while
+                # the order is still unpaid and unshipped; see Order.is_editable.
+                'can_edit_items': order.is_editable and self.resource.user_can(
+                    self.request.user, 'change'
+                ),
+                'items_formset': PanelOrderItemFormSet(instance=order),
+                'items_url': reverse('admin_panel:order_items', args=[order.pk]),
+                'payment_method_url': reverse(
+                    'admin_panel:order_payment_method', args=[order.pk]
+                ),
+                'payment_method_choices': order.PAYMENT_METHOD_CHOICES,
             }
         )
         return context
 
 
-class OrderStatusUpdateView(View):
-    """One-click status change from the order detail page.
+class OrderActionView(View):
+    """Shared guards for the inline actions on the order detail page.
 
-    Shipping is not offered here — that transition needs a courier and AWB, so
-    it goes through the full edit form where both can be validated.
+    Each of them is a bare POST from a card on that page rather than a full
+    form view, so they all need the same three checks and the same
+    "where do I send them back to" answer.
     """
 
-    BLOCKED_STATUSES = ('shipped',)
-
-    def post(self, request, pk):
+    def load_order(self, request, pk):
+        """Return ``(order, redirect_target)`` or raise :class:`PermissionDenied`."""
         from ..registry import registry
 
         resource = registry.get('orders')
@@ -87,9 +100,22 @@ class OrderStatusUpdateView(View):
             raise PermissionDenied('You do not have permission to edit orders.')
 
         order = get_object_or_404(resource.get_queryset(), pk=pk)
+        return order, safe_redirect_target(request, resource.url('detail', order.pk))
+
+
+class OrderStatusUpdateView(OrderActionView):
+    """One-click status change from the order detail page.
+
+    Shipping is not offered here — that transition needs a courier and AWB, so
+    it goes through the full edit form where both can be validated.
+    """
+
+    BLOCKED_STATUSES = ('shipped',)
+
+    def post(self, request, pk):
+        order, back = self.load_order(request, pk)
         target = request.POST.get('status', '')
         valid = {value for value, _ in order.STATUS_CHOICES} - set(self.BLOCKED_STATUSES)
-        back = safe_redirect_target(request, resource.url('detail', order.pk))
 
         if target not in valid:
             messages.error(request, 'That status change is not available from here.')
@@ -110,5 +136,110 @@ class OrderStatusUpdateView(View):
         messages.success(
             request,
             f'Order #{order.pk} moved from {previous} to {order.get_status_display()}.',
+        )
+        return redirect(back)
+
+
+class OrderItemsUpdateView(OrderActionView):
+    """Change what an unpaid order contains.
+
+    Products can be swapped, quantities corrected and lines removed. Saving
+    re-sums the subtotal and re-prices the order, because ``total_amount`` is
+    stored rather than derived — without that the summary card would keep
+    quoting the figure from checkout.
+    """
+
+    def post(self, request, pk):
+        order, back = self.load_order(request, pk)
+
+        if not order.is_editable:
+            messages.error(
+                request,
+                'A paid, shipped or closed order cannot have its items changed.',
+            )
+            return redirect(back)
+
+        formset = PanelOrderItemFormSet(request.POST, instance=order)
+        if not formset.is_valid():
+            for error in formset.non_form_errors():
+                messages.error(request, error)
+            for form in formset.forms:
+                for field, errors in form.errors.items():
+                    label = form.fields[field].label if field in form.fields else field
+                    for error in errors:
+                        messages.error(request, f'{label}: {error}')
+            return redirect(back)
+
+        # An order priced at zero with nothing in it is not a correction, it is
+        # a cancellation — and there is a status for that.
+        keeps = [
+            form for form in formset.forms
+            if form.cleaned_data.get('product') and not form.cleaned_data.get('DELETE')
+        ]
+        if not keeps:
+            messages.error(
+                request,
+                'An order has to keep at least one item. Cancel it instead of emptying it.',
+            )
+            return redirect(back)
+
+        previous_total = order.final_amount
+        with transaction.atomic():
+            formset.save()
+            order.resync_from_items()
+
+        log_change(request.user, order, ['items', 'total_amount', 'final_amount'])
+        invalidate_alerts()
+        messages.success(
+            request,
+            f'Order #{order.pk} items updated. Total is now '
+            f'₹{order.final_amount} (was ₹{previous_total}).',
+        )
+        return redirect(back)
+
+
+class OrderPaymentMethodUpdateView(OrderActionView):
+    """Switch an unpaid order between COD and the prepaid methods.
+
+    The COD handling fee and the prepaid discount both hang off this field, so
+    the order is re-priced rather than simply relabelled.
+    """
+
+    def post(self, request, pk):
+        order, back = self.load_order(request, pk)
+
+        if not order.is_editable:
+            messages.error(
+                request,
+                'A paid, shipped or closed order cannot change payment method.',
+            )
+            return redirect(back)
+
+        target = request.POST.get('payment_method', '')
+        if target not in {value for value, _ in order.PAYMENT_METHOD_CHOICES}:
+            messages.error(request, 'That is not a payment method this order can use.')
+            return redirect(back)
+
+        if order.payment_method == target:
+            messages.info(request, 'The order already uses that payment method.')
+            return redirect(back)
+
+        previous_label = order.get_payment_method_display()
+        previous_total = order.final_amount
+
+        with transaction.atomic():
+            order.payment_method = target
+            order.save(update_fields=['payment_method'])
+            # reprice() settles the handling fee and the prepaid discount, both
+            # of which read payment_method, so it has to run after that save.
+            order.reprice()
+
+        log_change(request.user, order, ['payment_method', 'final_amount'])
+        invalidate_alerts()
+        messages.success(
+            request,
+            f'Order #{order.pk} moved from {previous_label} to '
+            f'{order.get_payment_method_display()}. Total is now '
+            f'₹{order.final_amount} (was ₹{previous_total}).',
         )
         return redirect(back)

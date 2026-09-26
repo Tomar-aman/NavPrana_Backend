@@ -26,7 +26,64 @@
           <h2 class="card__title">Items</h2>
           <span class="muted">{{ item_count }} unit{{ item_count|pluralize }}</span>
         </div>
-        {% if items %}
+        {% if can_edit_items %}
+          <form method="post" action="{{ items_url }}">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            {{ items_formset.management_form }}
+            <div class="table-wrap">
+              <table class="table table--compact">
+                <thead>
+                  <tr>
+                    <th>Product</th>
+                    <th class="align-right">Unit price</th>
+                    <th class="align-right">Qty</th>
+                    <th class="align-right">Line total</th>
+                    <th class="table__check">Remove</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in items_formset %}
+                    <tr>
+                      <td>
+                        {{ row.id }}
+                        {{ row.product }}
+                        {% for error in row.product.errors %}
+                          <p class="field__error">{% panel_icon 'alert' 14 %} {{ error }}</p>
+                        {% endfor %}
+                      </td>
+                      <td class="align-right">
+                        {% if row.instance.pk %}{{ row.instance.price|rupees }}
+                        {% else %}<span class="muted">From product</span>{% endif %}
+                      </td>
+                      <td class="align-right">
+                        {{ row.quantity }}
+                        {% for error in row.quantity.errors %}
+                          <p class="field__error">{% panel_icon 'alert' 14 %} {{ error }}</p>
+                        {% endfor %}
+                      </td>
+                      <td class="align-right">
+                        {% if row.instance.pk %}<strong>{{ row.instance.total_price|rupees }}</strong>
+                        {% else %}<span class="muted">—</span>{% endif %}
+                      </td>
+                      <td class="table__check">{% if row.instance.pk %}{{ row.DELETE }}{% endif %}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            <div class="card__foot">
+              <p class="card__note">
+                Swapping a product re-reads its current price. Saving re-prices the
+                order, so shipping and any COD fee follow the new subtotal.
+              </p>
+              <button type="submit" class="btn btn--primary" data-loading="Saving…"
+                      data-confirm="Update the items on order #{{ object.pk }}?">
+                {% panel_icon 'check' 16 %} Save items
+              </button>
+            </div>
+          </form>
+        {% elif items %}
           <div class="table-wrap">
             <table class="table table--compact">
               <thead>
@@ -151,6 +208,29 @@
           {% endif %}
         {% endif %}
       </section>
+
+      {% if can_edit_items %}
+        <section class="card">
+          <h2 class="card__title">Payment method</h2>
+          <p class="card__note">
+            Currently {{ object.get_payment_method_display }}. Switching re-prices the
+            order: the COD handling fee and the prepaid discount both follow this field.
+          </p>
+          <form method="post" action="{{ payment_method_url }}" class="status-actions">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            {% for value, label in payment_method_choices %}
+              {% if value != object.payment_method %}
+                <button type="submit" name="payment_method" value="{{ value }}"
+                        class="chip chip--action" data-loading="…"
+                        data-confirm="Move order #{{ object.pk }} to {{ label }}?">
+                  {{ label }}
+                </button>
+              {% endif %}
+            {% endfor %}
+          </form>
+        </section>
+      {% endif %}
 
       {% if can_edit %}
         <section class="card">

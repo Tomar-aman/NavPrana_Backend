@@ -435,6 +435,12 @@ address { font-style: normal; }
   gap: 12px; margin-bottom: 14px; flex-wrap: wrap;
 }
 .card__head--padded { padding: 16px 20px 0; margin-bottom: 12px; }
+.card__foot {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap;
+  padding: 14px 20px 16px; border-top: 1px solid var(--border);
+}
+.card__foot .card__note { margin: 0; flex: 1 1 260px; }
 .card + .card { margin-top: 16px; }
 
 /* Page head -------------------------------------------------------------- */

@@ -18,7 +18,12 @@ from .crud import (
     SingletonListView,
 )
 from .dashboard import DashboardView
-from .orders import OrderDetailView, OrderStatusUpdateView
+from .orders import (
+    OrderDetailView,
+    OrderItemsUpdateView,
+    OrderPaymentMethodUpdateView,
+    OrderStatusUpdateView,
+)
 
 
 #: Resources whose detail page needs more than the generic field dump.
@@ -51,6 +56,8 @@ __all__ = [
     'DashboardView',
     'GlobalSearchView',
     'OrderDetailView',
+    'OrderItemsUpdateView',
+    'OrderPaymentMethodUpdateView',
     'OrderStatusUpdateView',
     'PanelLoginView',
     'PanelLogoutView',
