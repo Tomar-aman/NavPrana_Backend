@@ -315,6 +315,161 @@ class OrderFulfilmentTests(TestCase):
         self.assertFalse(response['Location'].startswith('http'))
 
 
+class OrderContentEditingTests(TestCase):
+    """An unpaid order can be corrected from its detail page; a paid one cannot.
+
+    Every assertion here is really about one thing: ``total_amount`` is a
+    stored column, so changing the items has to re-sum it or the money card
+    silently keeps quoting the figure from checkout.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.superuser = User.objects.create_superuser('root@example.com', 'pw-Str0ng!123')
+        cls.customer = User.objects.create_user('buyer@example.com', 'pw-Str0ng!123')
+        cls.address = UserAddress.objects.create(
+            user=cls.customer, address_line1='1 Test Road', city='Morena',
+            state='Madhya Pradesh', postal_code='476001', country='India',
+        )
+        cls.product = make_product()  # max_price 1000 less 10% -> 900
+        # Product.save() always derives price, so it is set through max_price
+        # rather than passed in directly.
+        cls.other = make_product(
+            name='Other Ghee', size='1L',
+            max_price=Decimal('400.00'), discount_precent=Decimal('0.00'),
+        )
+
+    def setUp(self):
+        self.client.force_login(self.superuser)
+        self.order = Order.objects.create(
+            user=self.customer, address=self.address,
+            total_amount=Decimal('900.00'), payment_status='pending', status='pending',
+        )
+        self.item = OrderItem.objects.create(
+            order=self.order, product=self.product, quantity=1, price=Decimal('900.00'),
+        )
+
+    @property
+    def items_url(self):
+        return reverse('admin_panel:order_items', args=[self.order.pk])
+
+    @property
+    def method_url(self):
+        return reverse('admin_panel:order_payment_method', args=[self.order.pk])
+
+    def payload(self, **overrides):
+        """A full formset post: the existing line plus the spare blank row."""
+        data = {
+            'items-TOTAL_FORMS': '2',
+            'items-INITIAL_FORMS': '1',
+            'items-MIN_NUM_FORMS': '0',
+            'items-MAX_NUM_FORMS': '1000',
+            'items-0-id': str(self.item.pk),
+            'items-0-product': str(self.product.pk),
+            'items-0-quantity': '1',
+            'items-1-id': '',
+            'items-1-product': '',
+            'items-1-quantity': '',
+        }
+        data.update(overrides)
+        return data
+
+    def test_changing_quantity_resums_the_order(self):
+        self.client.post(self.items_url, self.payload(**{'items-0-quantity': '3'}))
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.total_amount, Decimal('2700.00'))
+        # Past the free-shipping threshold, so nothing is added on top.
+        self.assertEqual(self.order.shipping_fee, Decimal('0.00'))
+        self.assertEqual(self.order.final_amount, Decimal('2700.00'))
+
+    def test_swapping_the_product_takes_its_current_price(self):
+        self.client.post(self.items_url, self.payload(**{
+            'items-0-product': str(self.other.pk),
+            'items-0-quantity': '2',
+        }))
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.price, Decimal('400.00'))
+        self.assertEqual(self.item.total_price, Decimal('800.00'))
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.total_amount, Decimal('800.00'))
+
+    def test_a_quantity_only_edit_keeps_the_quoted_price(self):
+        """The customer was quoted 900; a later catalogue change must not apply."""
+        self.product.max_price = Decimal('2000.00')
+        self.product.save()
+        self.client.post(self.items_url, self.payload(**{'items-0-quantity': '2'}))
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.price, Decimal('900.00'))
+        self.assertEqual(self.item.total_price, Decimal('1800.00'))
+
+    def test_a_line_can_be_added(self):
+        self.client.post(self.items_url, self.payload(**{
+            'items-1-product': str(self.other.pk),
+            'items-1-quantity': '1',
+        }))
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.items.count(), 2)
+        self.assertEqual(self.order.total_amount, Decimal('1300.00'))
+
+    def test_an_order_cannot_be_emptied(self):
+        response = self.client.post(self.items_url, self.payload(**{'items-0-DELETE': 'on'}))
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(self.order.items.count(), 1)
+
+    def test_quantity_below_one_is_refused(self):
+        self.client.post(self.items_url, self.payload(**{'items-0-quantity': '0'}))
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.quantity, 1)
+
+    def test_a_paid_order_keeps_its_items(self):
+        self.order.payment_status = 'paid'
+        self.order.save(update_fields=['payment_status'])
+        self.client.post(self.items_url, self.payload(**{'items-0-quantity': '5'}))
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.quantity, 1)
+
+    def test_a_shipped_order_keeps_its_items(self):
+        self.order.status = 'shipped'
+        self.order.save(update_fields=['status'])
+        self.client.post(self.items_url, self.payload(**{'items-0-quantity': '5'}))
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.quantity, 1)
+
+    def test_converting_to_cod_charges_the_handling_fee(self):
+        self.client.post(self.method_url, {'payment_method': 'cod'})
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.payment_method, 'cod')
+        self.assertEqual(self.order.handling_fee, Decimal('49.00'))
+        self.assertEqual(self.order.final_amount, Decimal('949.00'))
+
+    def test_converting_away_from_cod_drops_the_handling_fee(self):
+        self.client.post(self.method_url, {'payment_method': 'cod'})
+        self.client.post(self.method_url, {'payment_method': 'upi'})
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.handling_fee, Decimal('0.00'))
+        self.assertEqual(self.order.final_amount, Decimal('900.00'))
+
+    def test_an_unknown_payment_method_is_refused(self):
+        self.client.post(self.method_url, {'payment_method': 'barter'})
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.payment_method, 'upi')
+
+    def test_a_paid_order_keeps_its_payment_method(self):
+        self.order.payment_status = 'paid'
+        self.order.save(update_fields=['payment_status'])
+        self.client.post(self.method_url, {'payment_method': 'cod'})
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.payment_method, 'upi')
+
+    def test_the_editor_is_hidden_once_the_order_is_paid(self):
+        detail = registry.get('orders').url('detail', self.order.pk)
+        self.assertContains(self.client.get(detail), 'Save items')
+
+        self.order.payment_status = 'paid'
+        self.order.save(update_fields=['payment_status'])
+        self.assertNotContains(self.client.get(detail), 'Save items')
+
+
 class PricingSettingsPanelTests(TestCase):
     """One row, edited as a page, and only ever applied to new orders."""
 

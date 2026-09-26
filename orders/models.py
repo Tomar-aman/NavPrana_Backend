@@ -1,4 +1,5 @@
 from django.db import models, transaction
+from django.db.models import Sum
 from decimal import Decimal
 from api_settings.models import PricingSettings
 from config import settings
@@ -319,6 +320,45 @@ class Order(models.Model):
         self.handling_fee = self.calculate_handling_fee(pricing)
         self.prepaid_discount = self.calculate_prepaid_discount(pricing)
         self.final_amount = self.calculate_final_amount()
+
+    @property
+    def is_editable(self):
+        """
+        Whether staff may still change what this order contains.
+
+        Once money has changed hands, editing the contents would leave the
+        order and the payment disagreeing with no record of the gap, so paid
+        and refunded orders are frozen. Shipped, delivered and cancelled
+        orders are frozen too: the goods have already gone or the order is
+        closed, and re-pricing either is meaningless.
+        """
+        return (
+            self.payment_status not in ('paid', 'refunded')
+            and self.status not in ('shipped', 'delivered', 'cancelled')
+        )
+
+    def recalculate_subtotal(self):
+        """Re-sum ``total_amount`` from the line items currently attached."""
+        total = self.items.aggregate(total=Sum('total_price'))['total']
+        self.total_amount = total or Decimal('0.00')
+        return self.total_amount
+
+    def resync_from_items(self, save=True):
+        """
+        Re-sum the subtotal from the line items, then re-price the order.
+
+        ``reprice()`` on its own is not enough here: ``total_amount`` is a
+        stored column rather than a derived one, and every other money field
+        is worked out from it, so changing the items without this leaves the
+        whole summary quietly wrong.
+        """
+        self.recalculate_subtotal()
+        self.price()
+        if save:
+            self.save(update_fields=[
+                'total_amount', 'discount_amount', 'tax_amount', 'shipping_fee',
+                'handling_fee', 'prepaid_discount', 'final_amount', 'updated_at',
+            ])
 
     def reprice(self, save=True):
         """
