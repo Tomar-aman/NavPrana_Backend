@@ -36,6 +36,12 @@ urlpatterns = [
     # User-specific action
     path('users/<int:pk>/set-password/', views.UserSetPasswordView.as_view(), name='user_set_password'),
 
+    # WhatsApp inbox
+    path('whatsapp/', views.WhatsAppInboxView.as_view(), name='whatsapp'),
+    path('whatsapp/<int:pk>/', views.WhatsAppInboxView.as_view(), name='whatsapp_thread'),
+    path('whatsapp/<int:pk>/reply/', views.WhatsAppReplyView.as_view(), name='whatsapp_reply'),
+    path('whatsapp/media/<int:pk>/', views.WhatsAppMediaView.as_view(), name='whatsapp_media'),
+
     # Generic resource CRUD
     path('<slug:resource>/', views.resource_list, name='resource_list'),
     path('<slug:resource>/export/', views.ResourceExportView.as_view(), name='resource_export'),

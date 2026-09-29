@@ -1,0 +1,201 @@
+{% extends 'panel/base.html' %}
+{% load panel_tags %}
+
+{% block content %}
+  <section class="card card--flush" id="wa-root">
+    <div class="wa{% if active %} wa--open{% endif %}">
+
+      <div class="wa__list">
+        <form class="wa__search" method="get" action="{% url 'admin_panel:whatsapp' %}">
+          <input type="search" name="q" value="{{ search_term }}" placeholder="Search name or number"
+                 aria-label="Search chats">
+        </form>
+        <div class="wa__items" id="wa-items">
+          {% for c in conversations %}
+            <a class="wa-item{% if active and c.pk == active.pk %} is-active{% endif %}{% if c.unread_count %} has-unread{% endif %}"
+               href="{% url 'admin_panel:whatsapp_thread' c.pk %}{% if search_term %}?q={{ search_term|urlencode }}{% endif %}">
+              <span class="wa-item__avatar">{{ c.display_name|first|upper }}</span>
+              <span class="wa-item__main">
+                <span class="wa-item__row">
+                  <span class="wa-item__name">{{ c.display_name }}</span>
+                  <span class="wa-item__time">{{ c.last_message_at|date:"j M, H:i" }}</span>
+                </span>
+                <span class="wa-item__row">
+                  <span class="wa-item__preview">
+                    {% if c.last_direction == 'out' %}You: {% endif %}
+                    {% if c.last_type != 'text' and not c.last_body %}📎 {{ c.last_type }}
+                    {% else %}{{ c.last_body|default:c.last_type|truncatechars:60 }}{% endif %}
+                  </span>
+                  {% if c.unread_count %}<span class="wa-item__unread">{{ c.unread_count }}</span>{% endif %}
+                </span>
+              </span>
+            </a>
+          {% empty %}
+            {% if search_term %}
+              {% include 'panel/partials/empty_state.html' with icon='search' title='No matching chats' %}
+            {% else %}
+              {% include 'panel/partials/empty_state.html' with icon='phone' title='No chats yet' body='When a customer messages the business WhatsApp number, the chat appears here.' %}
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="wa__thread">
+        {% if active %}
+          <div class="wa-thread__head">
+            <a class="icon-btn wa-thread__back" href="{% url 'admin_panel:whatsapp' %}" aria-label="Back to chats">
+              {% panel_icon 'chevron-left' 18 %}
+            </a>
+            <span class="wa-thread__avatar">{{ active.display_name|first|upper }}</span>
+            <div class="wa-thread__who">
+              <div class="wa-thread__name">{{ active.display_name }}</div>
+              <div class="wa-thread__meta">
+                +{{ active.wa_id }}
+                {% if active.profile_name and active.user_id %} · WhatsApp name: {{ active.profile_name }}{% endif %}
+              </div>
+            </div>
+            {% if active.window_open %}
+              <span class="badge badge--success" title="Free-form replies allowed until {{ active.window_expires_at|date:'j M, H:i' }}">
+                Reply open till {{ active.window_expires_at|date:"j M, H:i" }}
+              </span>
+            {% else %}
+              <span class="badge badge--warning">Reply window closed</span>
+            {% endif %}
+            {% if customer_url %}
+              <a class="btn btn--subtle btn--sm" href="{{ customer_url }}">{% panel_icon 'user' 14 %} Customer</a>
+            {% endif %}
+          </div>
+
+          <div class="wa-thread__body" id="wa-body">
+            {% if thread_truncated %}<p class="wa-day">Showing the latest {{ thread|length }} messages</p>{% endif %}
+            {% for m in thread %}
+              {% ifchanged m.timestamp|date:"Ymd" %}<p class="wa-day">{{ m.timestamp|date:"l, j M Y" }}</p>{% endifchanged %}
+              <div class="wa-msg{% if m.direction == 'out' %} wa-msg--out{% endif %}{% if m.status == 'failed' %} wa-msg--failed{% endif %}">
+                {% if m.is_media %}
+                  {% if m.media_file %}
+                    {% url 'admin_panel:whatsapp_media' m.pk as media_url %}
+                    {% if m.is_image %}
+                      <a href="{{ media_url }}" target="_blank" rel="noopener">
+                        <img class="wa-msg__img" src="{{ media_url }}" alt="{{ m.media_filename|default:'Image' }}" loading="lazy">
+                      </a>
+                    {% elif m.msg_type == 'video' %}
+                      <video class="wa-msg__media" src="{{ media_url }}" controls preload="metadata"></video>
+                    {% elif m.msg_type == 'audio' %}
+                      <audio class="wa-msg__media" src="{{ media_url }}" controls preload="metadata"></audio>
+                    {% else %}
+                      <a class="wa-msg__file" href="{{ media_url }}" target="_blank" rel="noopener">
+                        {% panel_icon 'file' 16 %} {{ m.media_filename|default:"Document" }}
+                      </a>
+                    {% endif %}
+                  {% else %}
+                    <span class="wa-msg__file">{% panel_icon 'clock' 16 %} {{ m.msg_type|capfirst }} is downloading…</span>
+                  {% endif %}
+                {% elif m.msg_type != 'text' %}
+                  <span class="wa-msg__tag">{{ m.msg_type }}</span>
+                {% endif %}
+
+                {% if m.body %}<div class="wa-msg__text">{{ m.body|urlize }}</div>{% endif %}
+
+                <div class="wa-msg__foot">
+                  {% if m.direction == 'out' and m.sent_by %}<span>{{ m.sent_by|display_name }}</span>{% endif %}
+                  <span>{{ m.timestamp|date:"H:i" }}</span>
+                  {% if m.direction == 'out' %}
+                    {% if m.status == 'read' %}<span class="wa-msg__tick--read" title="Read">✓✓</span>
+                    {% elif m.status == 'delivered' %}<span title="Delivered">✓✓</span>
+                    {% elif m.status == 'sent' %}<span title="Sent">✓</span>
+                    {% elif m.status == 'pending' %}<span title="Sending">{% panel_icon 'clock' 11 %}</span>
+                    {% endif %}
+                  {% endif %}
+                </div>
+                {% if m.status == 'failed' %}<p class="wa-msg__error">{% panel_icon 'alert' 12 %} Not delivered: {{ m.error|default:"unknown error" }}</p>{% endif %}
+              </div>
+            {% endfor %}
+          </div>
+
+          {% if not can_reply %}
+            <p class="wa-compose__closed">You can read this chat but do not have permission to reply.</p>
+          {% elif active.window_open %}
+            <form class="wa-compose" method="post" enctype="multipart/form-data"
+                  action="{% url 'admin_panel:whatsapp_reply' active.pk %}" id="wa-compose">
+              {% csrf_token %}
+              <div class="wa-compose__row">
+                <label class="btn btn--ghost" title="Attach a file">
+                  {% panel_icon 'file' 16 %}
+                  <input type="file" name="file" hidden id="wa-file">
+                </label>
+                <textarea name="text" rows="1" maxlength="4096" placeholder="Type a reply… (Ctrl+Enter to send)"
+                          aria-label="Reply" id="wa-text"></textarea>
+                <button type="submit" class="btn btn--primary" data-loading="Sending…">Send</button>
+              </div>
+              <p class="wa-compose__file" id="wa-file-name" hidden></p>
+            </form>
+          {% else %}
+            <p class="wa-compose__closed">
+              {% panel_icon 'clock' 14 %}
+              The 24-hour reply window has closed. WhatsApp only allows a free-form reply within 24 hours of the
+              customer's last message — once they write again, you can reply here.
+            </p>
+          {% endif %}
+        {% else %}
+          <div class="wa__empty">
+            {% include 'panel/partials/empty_state.html' with icon='phone' title='Select a chat' body='Pick a conversation on the left to read it and reply.' %}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  (function () {
+    function scrollDown() {
+      var body = document.getElementById('wa-body');
+      if (body) body.scrollTop = body.scrollHeight;
+    }
+    function wireCompose() {
+      var text = document.getElementById('wa-text');
+      var file = document.getElementById('wa-file');
+      var label = document.getElementById('wa-file-name');
+      if (text) {
+        text.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); text.form.requestSubmit(); }
+        });
+      }
+      if (file && label) {
+        file.addEventListener('change', function () {
+          label.hidden = !file.files.length;
+          label.textContent = file.files.length ? 'Attached: ' + file.files[0].name : '';
+        });
+      }
+    }
+    // Draft-safe polling: only refresh while nothing is typed or attached.
+    function idle() {
+      var text = document.getElementById('wa-text');
+      var file = document.getElementById('wa-file');
+      return (!text || !text.value.trim()) && (!file || !file.files.length) && document.activeElement !== text;
+    }
+    function refresh() {
+      if (document.hidden || !idle()) return;
+      var body = document.getElementById('wa-body');
+      var atBottom = !body || body.scrollHeight - body.scrollTop - body.clientHeight < 60;
+      fetch(window.location.href, { credentials: 'same-origin' })
+        .then(function (r) { return r.ok ? r.text() : null; })
+        .then(function (html) {
+          if (!html || !idle()) return;
+          var fresh = new DOMParser().parseFromString(html, 'text/html').getElementById('wa-root');
+          var root = document.getElementById('wa-root');
+          if (fresh && root) {
+            root.innerHTML = fresh.innerHTML;
+            wireCompose();
+            if (atBottom) scrollDown();
+          }
+        })
+        .catch(function () {});
+    }
+    scrollDown();
+    wireCompose();
+    setInterval(refresh, 15000);
+  })();
+</script>
+{% endblock %}
