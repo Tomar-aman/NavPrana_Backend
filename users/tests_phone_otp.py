@@ -60,6 +60,40 @@ class OTPLoginTests(PhoneOTPTestCase):
         self.assertEqual(user.email, 'asha@example.com')
         self.assertFalse(user.has_usable_password())
 
+    def test_email_is_optional_and_can_be_added_later(self):
+        self.client.post(LOGIN_SEND, {'phone_number': '9876543210'}, format='json')
+        res = self.client.post(LOGIN_VERIFY, {
+            'phone_number': '9876543210', 'otp': self.sent.last, 'first_name': 'Asha',
+        }, format='json')
+        self.assertEqual(res.status_code, 201)
+        user = User.objects.get(phone_number='9876543210')
+        self.assertIsNone(user.email)
+
+        # A second email-less account must fit the unique index too.
+        self.client.post(LOGIN_SEND, {'phone_number': '9123456780'}, format='json')
+        res = self.client.post(LOGIN_VERIFY, {
+            'phone_number': '9123456780', 'otp': self.sent.last, 'first_name': 'Ravi',
+        }, format='json')
+        self.assertEqual(res.status_code, 201)
+
+        self.client.force_authenticate(user)
+        self.client.patch('/api/v1/user/profile/', {'email': 'Asha@Example.com'}, format='json')
+        user.refresh_from_db()
+        self.assertEqual(user.email, 'asha@example.com')
+        # ...but not changed once set.
+        self.client.patch('/api/v1/user/profile/', {'email': 'other@example.com'}, format='json')
+        user.refresh_from_db()
+        self.assertEqual(user.email, 'asha@example.com')
+
+    def test_password_login_with_phone_number(self):
+        User.objects.create_user(email='a@example.com', password='strongpass1',
+                                 phone_number='9876543210', is_active=True)
+
+        res = self.client.post('/api/v1/user/login/', {'email': '+91 98765 43210', 'password': 'strongpass1'}, format='json')
+
+        self.assertEqual(res.status_code, 200)
+        self.assertIn('access', res.data)
+
     def test_existing_account_signs_in_even_with_old_phone_format(self):
         user = User.objects.create_user(email='a@example.com', password='x' * 8,
                                         phone_number='+91 98765-43210', is_active=True)

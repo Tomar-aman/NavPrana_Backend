@@ -516,8 +516,8 @@ class OTPLoginVerifyView(GenericAPIView):
 
     A number with an account signs straight in. A new number gets
     {"needs_details": true} first (the code is checked but not used up), and
-    the account is created when the same code comes back with a name and email.
-    Email is required because order confirmations and invoices go there.
+    the account is created when the same code comes back with a name. Email is
+    optional: without one the customer simply gets no order mail.
     """
     permission_classes = [AllowAny]
     authentication_classes = []
@@ -535,34 +535,37 @@ class OTPLoginVerifyView(GenericAPIView):
 
             first_name = str(request.data.get('first_name') or '').strip()
             email = str(request.data.get('email') or '').strip().lower()
-            if not first_name or not email:
+            if not first_name:
                 phone_otp.check(phone, PhoneOTP.LOGIN, code, consume=False)
                 return Response({'needs_details': True}, status=status.HTTP_200_OK)
 
-            try:
-                email = serializers.EmailField().run_validation(email)
-            except serializers.ValidationError:
-                return Response({'email': ['Enter a valid email address.']}, status=status.HTTP_400_BAD_REQUEST)
-            if User.objects.filter(email__iexact=email).exists():
-                return Response(
-                    {'email': ['This email is already registered. Sign in with your password, or use another email.']},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+            if email:
+                try:
+                    email = serializers.EmailField().run_validation(email)
+                except serializers.ValidationError:
+                    return Response({'email': ['Enter a valid email address.']}, status=status.HTTP_400_BAD_REQUEST)
+                if User.objects.filter(email__iexact=email).exists():
+                    return Response(
+                        {'email': ['This email is already registered. Sign in with your password, or use another email.']},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
 
             phone_otp.check(phone, PhoneOTP.LOGIN, code)
         except phone_otp.PhoneOTPError as exc:
             return _otp_error(exc)
 
         try:
-            user = User.objects.create_user(
-                email=email,
-                password=None,  # unusable; the customer signs in with OTP or sets one later
+            # Built directly: UserManager.create_user insists on an email.
+            user = User(
+                email=email or None,  # NULL, not "", so many email-less rows fit the unique index
                 first_name=first_name[:150],
                 last_name=str(request.data.get('last_name') or '').strip()[:150],
                 phone_number=phone,
                 is_active=True,
                 phone_verified=True,
             )
+            user.set_unusable_password()  # signs in with OTP, or sets a password later
+            user.save()
         except IntegrityError:
             return Response({'message': 'Could not create the account. Please try again.'}, status=status.HTTP_400_BAD_REQUEST)
         transaction.on_commit(lambda: send_welcome_email.delay(user.id))

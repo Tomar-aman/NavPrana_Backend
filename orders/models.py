@@ -548,6 +548,10 @@ class Order(models.Model):
         """Queue the payment confirmation and invoice emails for this order."""
         from orders.tasks import send_payment_success_email, send_invoice_email
 
+        # OTP sign-up leaves email optional; there is nowhere to send these.
+        if not self.user.email:
+            return
+
         order_id = self.pk
 
         def _dispatch():

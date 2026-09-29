@@ -26,6 +26,9 @@ def send_welcome_email(self, user_id):
         from users.models import User
         
         user = User.objects.get(id=user_id)
+        if not user.email:
+            # OTP sign-up without an email.
+            return False
         
         context = {
             'user': user,

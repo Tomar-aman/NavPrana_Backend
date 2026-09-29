@@ -91,8 +91,11 @@ class CashfreePaymentService:
                 "customer_details": {
                     "customer_id": customer_details.get('customer_id'),
                     "customer_phone": customer_details.get('customer_phone'),
-                    "customer_email": customer_details.get('customer_email'),
-                    "customer_name": customer_details.get('customer_name', '')
+                    "customer_name": customer_details.get('customer_name', ''),
+                    # Optional at Cashfree; accounts made with OTP login may
+                    # have none, and a null would be rejected.
+                    **({"customer_email": customer_details['customer_email']}
+                       if customer_details.get('customer_email') else {}),
                 },
                 "order_meta": order_meta or {},
                 "order_note": order_note or ""
