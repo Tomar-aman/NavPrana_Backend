@@ -134,12 +134,23 @@ class UserDetailsSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'first_name', 'last_name', 'email', 'phone_number','profile_picture','is_active',
-            'email_verified',
+            'email_verified', 'phone_verified',
         ]
         # This serializer also backs the profile PATCH. Without these a
         # customer could mark their own email verified, or change the email
         # and keep the verified flag from the old address.
-        read_only_fields = ['email', 'is_active', 'email_verified']
+        read_only_fields = ['email', 'is_active', 'email_verified', 'phone_verified']
+
+    def update(self, instance, validated_data):
+        from users.phone_otp import normalize_phone
+
+        # Verification belongs to the number, not the account. A new number
+        # has to be proved again before it can place a COD order.
+        if 'phone_number' in validated_data and (
+            normalize_phone(validated_data['phone_number']) != normalize_phone(instance.phone_number)
+        ):
+            instance.phone_verified = False
+        return super().update(instance, validated_data)
 
 
 class EmailVerificationOTPSerializer(serializers.Serializer):

@@ -3,7 +3,9 @@ from rest_framework.response import Response
 from rest_framework import status
 from datetime import timedelta
 from django.utils import timezone
-from users.models import User, UserAddress, OTP
+from users.models import User, UserAddress, OTP, PhoneOTP
+from users import phone_otp
+from rest_framework import serializers
 from users.serializers import FacebookAuthSerializer, LogoutSerializer, SignupSerializer, OTPVerificationSerializer, ResendOTPSerializer, UserDetailsSerializer, LoginSerializer, ForgotPasswordOTPSerializer, ForgotPasswordOtpVerifySerializer, ForgotPasswordResetSerializer, GoogleAuthSerializer, ChangePasswordSerializer, UserAddressSerializer, GuestCheckoutSerializer, EmailVerificationOTPSerializer
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError, AccessToken
@@ -400,3 +402,180 @@ class GuestCheckoutView(GenericAPIView):
                 'phone_number': user.phone_number,
             },
         }, status=status.HTTP_200_OK)
+
+
+# ---------------------------------------------------------------------------
+# WhatsApp phone OTP
+# ---------------------------------------------------------------------------
+
+def _otp_error(exc):
+    # Field key for forms, `message` for toasts — the frontend reads either.
+    return Response({exc.field: [exc.message], 'message': exc.message}, status=exc.status)
+
+
+def _auth_response(user, request, message, status_code=status.HTTP_200_OK, **extra):
+    refresh = RefreshToken.for_user(user)
+    data = UserDetailsSerializer(user, context={'request': request}).data
+    data.update(refresh=str(refresh), access=str(refresh.access_token), message=message, **extra)
+    return Response(data, status=status_code)
+
+
+class PhoneVerificationSendView(GenericAPIView):
+    """
+    Send a WhatsApp code to verify the signed-in user's phone.
+
+    POST /api/v1/user/phone-verification/send/   {"phone_number": "98765…"}  (optional)
+
+    Leaving phone_number out verifies the number already on the account.
+    Sending one lets a customer without a number (Google sign-up) or with a
+    wrong one fix it at checkout; it is only saved once the code checks out.
+    """
+
+    def post(self, request, *args, **kwargs):
+        user = request.user
+        try:
+            phone = phone_otp.clean_mobile(request.data.get('phone_number') or user.phone_number)
+            if user.phone_verified and phone == phone_otp.normalize_phone(user.phone_number):
+                return Response({'message': 'Phone number is already verified.'}, status=status.HTTP_400_BAD_REQUEST)
+            if phone_otp.held_by_other_account(phone, user):
+                raise phone_otp.PhoneOTPError(
+                    'This number is linked to another account. Sign in with it instead.',
+                    status=409, field='phone_number',
+                )
+            phone_otp.send(phone, PhoneOTP.VERIFY, ip=phone_otp.client_ip(request))
+        except phone_otp.PhoneOTPError as exc:
+            return _otp_error(exc)
+        return Response({'message': 'Code sent on WhatsApp.', 'phone_number': phone}, status=status.HTTP_200_OK)
+
+
+class PhoneVerificationConfirmView(GenericAPIView):
+    """
+    POST /api/v1/user/phone-verification/verify/   {"phone_number": "…", "otp": "123456"}
+    """
+
+    def post(self, request, *args, **kwargs):
+        user = request.user
+        try:
+            phone = phone_otp.clean_mobile(request.data.get('phone_number') or user.phone_number)
+            if phone_otp.held_by_other_account(phone, user):
+                raise phone_otp.PhoneOTPError(
+                    'This number is linked to another account. Sign in with it instead.',
+                    status=409, field='phone_number',
+                )
+            phone_otp.check(phone, PhoneOTP.VERIFY, request.data.get('otp', ''))
+        except phone_otp.PhoneOTPError as exc:
+            return _otp_error(exc)
+
+        try:
+            with transaction.atomic():
+                phone_otp.release_from_others(phone, user)
+                user.phone_number = phone
+                user.phone_verified = True
+                # A guest who proves their number becomes a real account they
+                # can sign in to with OTP. It also closes a gap: guest checkout
+                # signs guests in from a typed phone alone, so a guest account
+                # must never carry a verified number someone else could reuse.
+                user.is_guest = False
+                user.save(update_fields=['phone_number', 'phone_verified', 'is_guest'])
+        except IntegrityError:
+            return Response(
+                {'phone_number': ['This number is linked to another account.'],
+                 'message': 'This number is linked to another account.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        data = UserDetailsSerializer(user, context={'request': request}).data
+        data['message'] = 'Phone number verified.'
+        return Response(data, status=status.HTTP_200_OK)
+
+
+class OTPLoginSendView(GenericAPIView):
+    """
+    POST /api/v1/user/otp-login/send/   {"phone_number": "98765…"}
+
+    Works whether or not the number has an account, so the response never
+    reveals which numbers are registered.
+    """
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request, *args, **kwargs):
+        try:
+            phone = phone_otp.clean_mobile(request.data.get('phone_number'))
+            phone_otp.send(phone, PhoneOTP.LOGIN, ip=phone_otp.client_ip(request))
+        except phone_otp.PhoneOTPError as exc:
+            return _otp_error(exc)
+        return Response({'message': 'Code sent on WhatsApp.', 'phone_number': phone}, status=status.HTTP_200_OK)
+
+
+class OTPLoginVerifyView(GenericAPIView):
+    """
+    POST /api/v1/user/otp-login/verify/
+         {"phone_number": "…", "otp": "123456",
+          "first_name": "…", "last_name": "…", "email": "…"}   <- new numbers only
+
+    A number with an account signs straight in. A new number gets
+    {"needs_details": true} first (the code is checked but not used up), and
+    the account is created when the same code comes back with a name and email.
+    Email is required because order confirmations and invoices go there.
+    """
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request, *args, **kwargs):
+        code = request.data.get('otp', '')
+        try:
+            phone = phone_otp.clean_mobile(request.data.get('phone_number'))
+            # A real account wins over a guest one holding the same number.
+            user = phone_otp.users_with_phone(phone).order_by('is_guest', '-date_joined').first()
+
+            if user is not None:
+                phone_otp.check(phone, PhoneOTP.LOGIN, code)
+                return self._sign_in(request, user)
+
+            first_name = str(request.data.get('first_name') or '').strip()
+            email = str(request.data.get('email') or '').strip().lower()
+            if not first_name or not email:
+                phone_otp.check(phone, PhoneOTP.LOGIN, code, consume=False)
+                return Response({'needs_details': True}, status=status.HTTP_200_OK)
+
+            try:
+                email = serializers.EmailField().run_validation(email)
+            except serializers.ValidationError:
+                return Response({'email': ['Enter a valid email address.']}, status=status.HTTP_400_BAD_REQUEST)
+            if User.objects.filter(email__iexact=email).exists():
+                return Response(
+                    {'email': ['This email is already registered. Sign in with your password, or use another email.']},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            phone_otp.check(phone, PhoneOTP.LOGIN, code)
+        except phone_otp.PhoneOTPError as exc:
+            return _otp_error(exc)
+
+        try:
+            user = User.objects.create_user(
+                email=email,
+                password=None,  # unusable; the customer signs in with OTP or sets one later
+                first_name=first_name[:150],
+                last_name=str(request.data.get('last_name') or '').strip()[:150],
+                phone_number=phone,
+                is_active=True,
+                phone_verified=True,
+            )
+        except IntegrityError:
+            return Response({'message': 'Could not create the account. Please try again.'}, status=status.HTTP_400_BAD_REQUEST)
+        transaction.on_commit(lambda: send_welcome_email.delay(user.id))
+        return _auth_response(user, request, 'Account created. Welcome to NavPrana!',
+                              status.HTTP_201_CREATED, is_new_user=True)
+
+    def _sign_in(self, request, user):
+        # Same rule as password login: an unverified inactive row is a signup
+        # abandoned at the old email-OTP step; a verified one was disabled.
+        if not user.is_active and user.email_verified:
+            return Response({'message': 'This account is disabled. Please contact support.'}, status=status.HTTP_403_FORBIDDEN)
+        user.is_active = True
+        user.phone_verified = True
+        user.is_guest = False
+        user.save(update_fields=['is_active', 'phone_verified', 'is_guest'])
+        return _auth_response(user, request, 'Login successful. Welcome back!', is_new_user=False)

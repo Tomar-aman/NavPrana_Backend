@@ -14,6 +14,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.db import transaction as db_transaction
 from django.shortcuts import redirect
+from django.conf import settings
 from decimal import Decimal
 import logging
 from config.settings import FRONTEND_URL, SITE_URL
@@ -55,7 +56,22 @@ class CashfreeCreateOrderAndPaymentView(APIView):
     
     def post(self, request, *args, **kwargs):
         user = request.user
-        
+
+        # Fake COD orders come from numbers nobody answers. Checked before the
+        # contact check below so a customer with no number at all also gets
+        # this code, and the checkout can collect and verify one in place.
+        if (
+            settings.REQUIRE_PHONE_VERIFICATION_FOR_COD
+            and request.data.get('payment_method') == 'cod'
+            and not (user.phone_verified and user.phone_number)
+        ):
+            return Response({
+                'success': False,
+                'code': 'phone_not_verified',
+                'error': 'Please verify your phone number on WhatsApp to place a Cash on Delivery order.',
+                'phone_number': user.phone_number,
+            }, status=status.HTTP_403_FORBIDDEN)
+
         # Validate user contact details
         if not user.phone_number or not user.email:
             return Response({

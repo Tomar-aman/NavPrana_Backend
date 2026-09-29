@@ -1,5 +1,5 @@
 from django.urls import path
-from users.views import SignupView, OTPVerifyView, ResendOTPView, LoginView, ForgotpasswordOTPView, ForgotPasswordOTPVerifyView, ForgotPasswordResetView, ProfileView, ChangePasswordView, LogoutView, GoogleLoginView, FacebookLoginView, UserAddressView, UserAddressDetailView, GuestCheckoutView, SendEmailVerificationView, VerifyEmailView
+from users.views import SignupView, OTPVerifyView, ResendOTPView, LoginView, ForgotpasswordOTPView, ForgotPasswordOTPVerifyView, ForgotPasswordResetView, ProfileView, ChangePasswordView, LogoutView, GoogleLoginView, FacebookLoginView, UserAddressView, UserAddressDetailView, GuestCheckoutView, SendEmailVerificationView, VerifyEmailView, PhoneVerificationSendView, PhoneVerificationConfirmView, OTPLoginSendView, OTPLoginVerifyView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 urlpatterns = [
@@ -17,6 +17,10 @@ urlpatterns = [
     path('profile/', ProfileView.as_view(), name='profile'),
     path('email-verification/send/', SendEmailVerificationView.as_view(), name='send_email_verification'),
     path('email-verification/verify/', VerifyEmailView.as_view(), name='verify_email'),
+    path('phone-verification/send/', PhoneVerificationSendView.as_view(), name='send_phone_verification'),
+    path('phone-verification/verify/', PhoneVerificationConfirmView.as_view(), name='verify_phone'),
+    path('otp-login/send/', OTPLoginSendView.as_view(), name='otp_login_send'),
+    path('otp-login/verify/', OTPLoginVerifyView.as_view(), name='otp_login_verify'),
     path('change-password/', ChangePasswordView.as_view(), name='change_password'),
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),

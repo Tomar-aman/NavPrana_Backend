@@ -265,3 +265,79 @@ class OTP(models.Model):
         F() keeps concurrent submissions from losing an increment.
         """
         cls.objects.filter(user=user).update(attempt_count=F('attempt_count') + 1)
+
+
+class PhoneOTP(models.Model):
+    """
+    A code sent over WhatsApp to prove someone holds a phone number.
+
+    Keyed on the number rather than a user: OTP login has to work for a number
+    that has no account yet. Kept apart from :class:`OTP` so a phone code never
+    replaces a pending email code, or the other way round.
+
+    Every send is its own row, so the daily and per-IP limits are simple counts;
+    the newest unused row for a number and purpose is the live code.
+    """
+    LOGIN = 'login'
+    VERIFY = 'verify'
+    PURPOSE_CHOICES = (
+        (LOGIN, _('Login')),
+        (VERIFY, _('Phone verification')),
+    )
+
+    TTL_MINUTES = 10
+    MAX_ATTEMPTS = 5
+
+    phone_number = models.CharField(_('phone number'), max_length=10, db_index=True)
+    purpose = models.CharField(_('purpose'), max_length=10, choices=PURPOSE_CHOICES)
+    # Only a keyed hash is stored, so the admin and a database dump never
+    # show a code that could still be used.
+    code_hash = models.CharField(_('code hash'), max_length=64)
+    requested_ip = models.GenericIPAddressField(_('requested from'), null=True, blank=True)
+    wa_message_id = models.CharField(_('WhatsApp message id'), max_length=128, blank=True)
+    attempt_count = models.PositiveIntegerField(_('failed attempts'), default=0)
+    created_at = models.DateTimeField(_('created at'), auto_now_add=True, db_index=True)
+    expires_at = models.DateTimeField(_('expires at'))
+    used_at = models.DateTimeField(_('used at'), null=True, blank=True)
+
+    class Meta:
+        verbose_name = _('phone OTP')
+        verbose_name_plural = _('phone OTPs')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.get_purpose_display()} OTP for {self.phone_number}"
+
+    @staticmethod
+    def hash_code(code):
+        import hashlib
+        import hmac
+        from django.conf import settings
+
+        return hmac.new(settings.SECRET_KEY.encode(), str(code).encode(), hashlib.sha256).hexdigest()
+
+    @classmethod
+    def issue(cls, phone_number, purpose, requested_ip=None):
+        """Create a new live code. Returns ``(row, plain_code)``."""
+        from django.utils import timezone
+
+        code = f'{random.SystemRandom().randint(0, 999999):06d}'
+        row = cls.objects.create(
+            phone_number=phone_number,
+            purpose=purpose,
+            code_hash=cls.hash_code(code),
+            requested_ip=requested_ip,
+            expires_at=timezone.now() + timedelta(minutes=cls.TTL_MINUTES),
+        )
+        return row, code
+
+    @classmethod
+    def live(cls, phone_number, purpose):
+        return cls.objects.filter(
+            phone_number=phone_number, purpose=purpose, used_at__isnull=True
+        ).order_by('-created_at').first()
+
+    def matches(self, code):
+        import hmac
+
+        return hmac.compare_digest(self.code_hash, self.hash_code(code))

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import User, UserAddress, OTP
+from .models import User, UserAddress, OTP, PhoneOTP
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
@@ -53,3 +53,18 @@ class OTPAdmin(admin.ModelAdmin):
         the clock, which is the one question anybody opens this page to ask.
         """
         return not obj.is_expired()
+
+
+@admin.register(PhoneOTP)
+class PhoneOTPAdmin(admin.ModelAdmin):
+    """Read-only log of WhatsApp codes, for spotting abuse of the send limits."""
+    list_display = ('phone_number', 'purpose', 'requested_ip', 'attempt_count', 'created_at', 'used_at')
+    list_filter = ('purpose', 'created_at')
+    search_fields = ('phone_number', 'requested_ip')
+    ordering = ('-created_at',)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
