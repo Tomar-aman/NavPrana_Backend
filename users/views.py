@@ -1,13 +1,15 @@
 from rest_framework.generics import GenericAPIView
 from rest_framework.response import Response
 from rest_framework import status
-from users.models import User, UserAddress
-from users.serializers import FacebookAuthSerializer, LogoutSerializer, SignupSerializer, OTPVerificationSerializer, ResendOTPSerializer, UserDetailsSerializer, LoginSerializer, ForgotPasswordOTPSerializer, ForgotPasswordOtpVerifySerializer, ForgotPasswordResetSerializer, GoogleAuthSerializer, ChangePasswordSerializer, UserAddressSerializer, GuestCheckoutSerializer
+from datetime import timedelta
+from django.utils import timezone
+from users.models import User, UserAddress, OTP
+from users.serializers import FacebookAuthSerializer, LogoutSerializer, SignupSerializer, OTPVerificationSerializer, ResendOTPSerializer, UserDetailsSerializer, LoginSerializer, ForgotPasswordOTPSerializer, ForgotPasswordOtpVerifySerializer, ForgotPasswordResetSerializer, GoogleAuthSerializer, ChangePasswordSerializer, UserAddressSerializer, GuestCheckoutSerializer, EmailVerificationOTPSerializer
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError, AccessToken
 from django.db import transaction, IntegrityError
 from django.db.models import Q
-from users.tasks import send_welcome_email
+from users.tasks import send_welcome_email, send_otp_email
 
 class SignupView(GenericAPIView):
     permission_classes = [AllowAny]
@@ -17,7 +19,13 @@ class SignupView(GenericAPIView):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
-            return Response({"message": "User created. OTP sent to your email."}, status=status.HTTP_201_CREATED)
+            refresh = RefreshToken.for_user(user)
+            transaction.on_commit(lambda: send_welcome_email.delay(user.id))
+            user_data = UserDetailsSerializer(user, context={'request': request}).data
+            user_data["refresh"] = str(refresh)
+            user_data["access"] = str(refresh.access_token)
+            user_data['message'] = "Account created. Welcome to NavPrana!"
+            return Response(user_data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
@@ -176,6 +184,49 @@ class ProfileView(GenericAPIView):
         user = request.user
         serializer = self.get_serializer(user)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+class SendEmailVerificationView(GenericAPIView):
+    """Email the signed-in user a code to verify their address (profile page)."""
+
+    # Matches the resend countdown on the frontend.
+    RESEND_COOLDOWN_SECONDS = 30
+
+    def post(self, request, *args, **kwargs):
+        user = request.user
+        if user.email_verified:
+            return Response({"message": "Email is already verified."}, status=status.HTTP_400_BAD_REQUEST)
+        if not user.email:
+            return Response({"message": "Add an email address first."}, status=status.HTTP_400_BAD_REQUEST)
+
+        latest = OTP.objects.filter(user=user).order_by('-created_at').first()
+        if latest and timezone.now() - latest.created_at < timedelta(seconds=self.RESEND_COOLDOWN_SECONDS):
+            return Response(
+                {"message": "Please wait a few seconds before requesting another OTP."},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+
+        otp = OTP.issue_for(user)
+        send_otp_email.delay(
+            subject="Verify your email - NavPrana",
+            template_name="email/verify_email_otp.html",
+            user_id=user.id,
+            otp_code=otp.otp_code,
+        )
+        return Response({"message": "OTP sent to your email."}, status=status.HTTP_200_OK)
+
+
+class VerifyEmailView(GenericAPIView):
+    serializer_class = EmailVerificationOTPSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            user_data = UserDetailsSerializer(user, context={'request': request}).data
+            user_data['message'] = "Email verified."
+            return Response(user_data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class ChangePasswordView(GenericAPIView):
     """
