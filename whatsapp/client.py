@@ -71,6 +71,28 @@ def send_text(to, text):
     return _post_message({'to': to, 'type': 'text', 'text': {'body': text, 'preview_url': True}})
 
 
+def send_otp_template(to, code):
+    """Send ``code`` with the approved authentication template.
+
+    Unlike free-form text this needs no open 24-hour window. Authentication
+    templates with a copy-code button take the code twice: once for the body
+    and once for the button, or Meta rejects the send with error 131008.
+    """
+    return _post_message({
+        'to': to,
+        'type': 'template',
+        'template': {
+            'name': settings.WHATSAPP_OTP_TEMPLATE,
+            'language': {'code': settings.WHATSAPP_OTP_TEMPLATE_LANGUAGE},
+            'components': [
+                {'type': 'body', 'parameters': [{'type': 'text', 'text': code}]},
+                {'type': 'button', 'sub_type': 'url', 'index': '0',
+                 'parameters': [{'type': 'text', 'text': code}]},
+            ],
+        },
+    })
+
+
 def upload_media(fileobj, filename, mime):
     """Upload a file to Meta and return its media id, for use in :func:`send_media`."""
     url = f'{_base()}/{settings.WHATSAPP_PHONE_NUMBER_ID}/media'

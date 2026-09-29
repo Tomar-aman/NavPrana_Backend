@@ -253,6 +253,15 @@ WHATSAPP_ACCESS_TOKEN = config('WHATSAPP_ACCESS_TOKEN', default='')
 WHATSAPP_APP_SECRET = config('WHATSAPP_APP_SECRET', default='')
 WHATSAPP_VERIFY_TOKEN = config('WHATSAPP_VERIFY_TOKEN', default='')
 WHATSAPP_API_VERSION = config('WHATSAPP_API_VERSION', default='v23.0')
+# Approved "Authentication" template with a copy-code button, used for phone
+# OTPs (login, phone verification before COD).
+WHATSAPP_OTP_TEMPLATE = config('WHATSAPP_OTP_TEMPLATE', default='verify_otp')
+WHATSAPP_OTP_TEMPLATE_LANGUAGE = config('WHATSAPP_OTP_TEMPLATE_LANGUAGE', default='en_US')
+
+# Fake COD orders come from numbers nobody answers, so COD is only accepted
+# once the customer has proved they hold their phone with a WhatsApp OTP.
+# Switch off if WhatsApp sending breaks, so COD is not lost with it.
+REQUIRE_PHONE_VERIFICATION_FOR_COD = config('REQUIRE_PHONE_VERIFICATION_FOR_COD', default=True, cast=bool)
 
 
 # Logging settings
