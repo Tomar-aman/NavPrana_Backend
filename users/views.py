@@ -79,10 +79,36 @@ class LoginView(GenericAPIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 
+def _account_for_phone(phone):
+    """The account a reset for ``phone`` applies to. Guests count: setting a
+    password is how a guest account becomes a real one."""
+    return phone_otp.users_with_phone(phone).order_by('is_guest', '-date_joined').first()
+
+
 class ForgotpasswordOTPView(GenericAPIView):
+    """
+    POST /api/v1/user/forgot-password-otp/
+         {"email": "…"}          → code by email
+         {"phone_number": "…"}   → code on WhatsApp
+    """
     permission_classes = [AllowAny]
+    authentication_classes = []
     serializer_class = ForgotPasswordOTPSerializer
+
     def post(self, request, *args, **kwargs):
+        if request.data.get('phone_number'):
+            try:
+                phone = phone_otp.clean_mobile(request.data['phone_number'])
+                # Checked before sending so no paid WhatsApp message goes to a
+                # number that has no account to reset.
+                if _account_for_phone(phone) is None:
+                    raise phone_otp.PhoneOTPError(
+                        'No account found with this number.', status=404, field='phone_number')
+                phone_otp.send(phone, PhoneOTP.RESET, ip=phone_otp.client_ip(request))
+            except phone_otp.PhoneOTPError as exc:
+                return _otp_error(exc)
+            return Response({"message": "OTP sent on your WhatsApp."}, status=status.HTTP_200_OK)
+
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -91,18 +117,48 @@ class ForgotpasswordOTPView(GenericAPIView):
 
 
 class ForgotPasswordOTPVerifyView(GenericAPIView):
+    """
+    POST /api/v1/user/forgot-password-otp-verify/
+         {"email": "…", "otp": "…"}  or  {"phone_number": "…", "otp": "…"}
+
+    Answers with {"uid", "token"}, which forgot-password-reset/ requires.
+    """
     permission_classes = [AllowAny]
+    authentication_classes = []
     serializer_class = ForgotPasswordOtpVerifySerializer
 
     def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        if serializer.is_valid():
-            otp = serializer.save()
-            return Response({"message": "OTP verified. You can reset your password."}, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        if request.data.get('phone_number'):
+            try:
+                phone = phone_otp.clean_mobile(request.data['phone_number'])
+                user = _account_for_phone(phone)
+                if user is None:
+                    raise phone_otp.PhoneOTPError(
+                        'No account found with this number.', status=404, field='phone_number')
+                phone_otp.check(phone, PhoneOTP.RESET, request.data.get('otp', ''))
+            except phone_otp.PhoneOTPError as exc:
+                return _otp_error(exc)
+            # The code reached this phone, so the number is proven.
+            if not user.phone_verified:
+                user.phone_verified = True
+                user.save(update_fields=['phone_verified'])
+        else:
+            serializer = self.get_serializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            user = serializer.save()
+
+        from django.contrib.auth.tokens import default_token_generator
+
+        return Response({
+            "message": "OTP verified. You can reset your password.",
+            "uid": user.pk,
+            "token": default_token_generator.make_token(user),
+        }, status=status.HTTP_200_OK)
 
 class ForgotPasswordResetView(GenericAPIView):
     permission_classes = [AllowAny]
+    authentication_classes = []
     serializer_class = ForgotPasswordResetSerializer
 
     def post(self, request, *args, **kwargs):
@@ -191,7 +247,7 @@ class SendEmailVerificationView(GenericAPIView):
     """Email the signed-in user a code to verify their address (profile page)."""
 
     # Matches the resend countdown on the frontend.
-    RESEND_COOLDOWN_SECONDS = 30
+    RESEND_COOLDOWN_SECONDS = 60
 
     def post(self, request, *args, **kwargs):
         user = request.user

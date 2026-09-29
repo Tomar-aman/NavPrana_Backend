@@ -224,3 +224,61 @@ class CODGateTests(PhoneOTPTestCase):
     def test_gate_can_be_switched_off(self):
         res = self.client.post(CREATE_ORDER, {'payment_method': 'cod', 'products': []}, format='json')
         self.assertNotEqual(res.status_code, 403)
+
+
+class ForgotPasswordTests(PhoneOTPTestCase):
+    SEND = '/api/v1/user/forgot-password-otp/'
+    VERIFY = '/api/v1/user/forgot-password-otp-verify/'
+    RESET = '/api/v1/user/forgot-password-reset/'
+
+    def setUp(self):
+        super().setUp()
+        self.user = User.objects.create_user(email='a@example.com', password='oldpass123',
+                                             phone_number='9876543210', is_active=True)
+
+    def reset(self, uid, token, password='newpass123'):
+        return self.client.post(self.RESET, {
+            'uid': uid, 'token': token, 'password': password, 'confirm_password': password,
+        }, format='json')
+
+    def test_reset_by_phone(self):
+        self.assertEqual(self.client.post(self.SEND, {'phone_number': '9876543210'}, format='json').status_code, 200)
+        res = self.client.post(self.VERIFY, {'phone_number': '9876543210', 'otp': self.sent.last}, format='json')
+        self.assertEqual(res.status_code, 200)
+
+        self.assertEqual(self.reset(res.data['uid'], res.data['token']).status_code, 200)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password('newpass123'))
+        self.assertTrue(self.user.phone_verified)
+
+    @mock.patch('users.serializers.send_otp_email.delay')
+    def test_reset_by_email(self, _mail):
+        self.client.post(self.SEND, {'email': 'A@example.com'}, format='json')
+        code = self.user.otp_set.get().otp_code
+        res = self.client.post(self.VERIFY, {'email': 'a@example.com', 'otp': code}, format='json')
+
+        self.assertEqual(self.reset(res.data['uid'], res.data['token']).status_code, 200)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password('newpass123'))
+
+    def test_reset_needs_a_verified_otp(self):
+        # The old endpoint reset any account from its email alone.
+        res = self.client.post(self.RESET, {
+            'email': 'a@example.com', 'password': 'hacked123', 'confirm_password': 'hacked123',
+        }, format='json')
+        self.assertEqual(res.status_code, 400)
+        self.assertEqual(self.reset(self.user.pk, 'forged-token').status_code, 400)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password('oldpass123'))
+
+    def test_token_works_once(self):
+        self.client.post(self.SEND, {'phone_number': '9876543210'}, format='json')
+        res = self.client.post(self.VERIFY, {'phone_number': '9876543210', 'otp': self.sent.last}, format='json')
+        self.reset(res.data['uid'], res.data['token'])
+
+        self.assertEqual(self.reset(res.data['uid'], res.data['token'], 'again12345').status_code, 400)
+
+    def test_unknown_number_gets_no_message(self):
+        res = self.client.post(self.SEND, {'phone_number': '9123456780'}, format='json')
+        self.assertEqual(res.status_code, 404)
+        self.send_mock.assert_not_called()

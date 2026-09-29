@@ -280,9 +280,11 @@ class PhoneOTP(models.Model):
     """
     LOGIN = 'login'
     VERIFY = 'verify'
+    RESET = 'reset'
     PURPOSE_CHOICES = (
         (LOGIN, _('Login')),
         (VERIFY, _('Phone verification')),
+        (RESET, _('Password reset')),
     )
 
     TTL_MINUTES = 10
