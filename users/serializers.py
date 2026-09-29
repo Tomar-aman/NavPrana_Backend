@@ -139,10 +139,22 @@ class UserDetailsSerializer(serializers.ModelSerializer):
         # This serializer also backs the profile PATCH. Without these a
         # customer could mark their own email verified, or change the email
         # and keep the verified flag from the old address.
-        read_only_fields = ['email', 'is_active', 'email_verified', 'phone_verified']
+        read_only_fields = ['is_active', 'email_verified', 'phone_verified']
+
+    def validate_email(self, value):
+        value = (value or '').strip().lower() or None
+        if value and User.objects.filter(email__iexact=value).exclude(pk=getattr(self.instance, 'pk', None)).exists():
+            raise serializers.ValidationError("This email is already registered.")
+        return value
 
     def update(self, instance, validated_data):
         from users.phone_otp import normalize_phone
+
+        # An email can be added to an account that has none (OTP sign-up
+        # leaves it optional), but not changed once set: it is what password
+        # login and order mail go to, and it may already be verified.
+        if instance.email:
+            validated_data.pop('email', None)
 
         # Verification belongs to the number, not the account. A new number
         # has to be proved again before it can place a COD order.
@@ -180,14 +192,22 @@ class EmailVerificationOTPSerializer(serializers.Serializer):
         return user
 
 class LoginSerializer(serializers.Serializer):
-    email = serializers.EmailField(required=True)
+    # Email or mobile number. The key stays "email" so older frontends keep
+    # working; accounts made with OTP login may have no email at all.
+    email = serializers.CharField(required=True)
     password = serializers.CharField(required=True, min_length=8)
-    
+
     def create(self, validated_data):
-        email = validated_data.get('email').lower()
+        from users.phone_otp import normalize_phone, users_with_phone
+
+        identifier = validated_data.get('email').strip()
         password = validated_data.get('password')
 
-        user = User.objects.filter(email=email).first()
+        if '@' in identifier:
+            user = User.objects.filter(email=identifier.lower()).first()
+        else:
+            # Real accounts before guest ones, which have no password anyway.
+            user = users_with_phone(normalize_phone(identifier)).order_by('is_guest', '-date_joined').first()
 
         if not user:
             raise serializers.ValidationError({"email": "User not found."})

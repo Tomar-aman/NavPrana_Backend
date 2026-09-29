@@ -72,11 +72,12 @@ class CashfreeCreateOrderAndPaymentView(APIView):
                 'phone_number': user.phone_number,
             }, status=status.HTTP_403_FORBIDDEN)
 
-        # Validate user contact details
-        if not user.phone_number or not user.email:
+        # The courier needs a phone. Email is optional since OTP sign-up; order
+        # mail is simply skipped for an account without one.
+        if not user.phone_number:
             return Response({
                 'success': False,
-                'error': 'Please update your phone number and email before proceeding'
+                'error': 'Please add your phone number before proceeding'
             }, status=status.HTTP_400_BAD_REQUEST)
         
         serializer = CreateOrderSerializer(data=request.data)
