@@ -25,6 +25,7 @@ from rest_framework import permissions
 
 from config.views import custom_404_view
 from transactions.cashfree_webhook import CashfreeWebhookView
+from whatsapp.webhook import WhatsAppWebhookView
 
 schema_view = get_schema_view(
    openapi.Info(
@@ -50,6 +51,7 @@ urlpatterns = [
     path('reports/', include('lab_report.url')),
     path("api/", include("config.apis", namespace="api")),
     path("api/payments/cashfree/webhook/", CashfreeWebhookView.as_view(), name="cashfree_webhook_direct"),
+    path("api/whatsapp/webhook/", WhatsAppWebhookView.as_view(), name="whatsapp_webhook"),
 ]
 
 if settings.DEBUG:

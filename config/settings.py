@@ -81,6 +81,7 @@ INSTALLED_APPS = [
     'lab_report',
     'blogs',
     'public_data',
+    'whatsapp',
     # 'notification',
     
 ]
@@ -183,6 +184,10 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# Files customers send over WhatsApp. Kept outside MEDIA_ROOT because /media/
+# is served publicly; these are only reachable through a staff-only panel view.
+PRIVATE_MEDIA_ROOT = BASE_DIR / 'private_media'
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
@@ -240,6 +245,14 @@ CASHFREE_APP_ID = config('CASHFREE_APP_ID')
 CASHFREE_SECRET_KEY = config('CASHFREE_SECRET_KEY')
 CASHFREE_API_VERSION = config('CASHFREE_API_VERSION', default='2023-08-01')
 CASHFREE_ENVIRONMENT = config('CASHFREE_ENVIRONMENT', default='TEST')
+
+# WhatsApp Cloud API (Meta)
+WHATSAPP_PHONE_NUMBER_ID = config('WHATSAPP_PHONE_NUMBER_ID', default='')
+WHATSAPP_BUSINESS_ACCOUNT_ID = config('WHATSAPP_BUSINESS_ACCOUNT_ID', default='')
+WHATSAPP_ACCESS_TOKEN = config('WHATSAPP_ACCESS_TOKEN', default='')
+WHATSAPP_APP_SECRET = config('WHATSAPP_APP_SECRET', default='')
+WHATSAPP_VERIFY_TOKEN = config('WHATSAPP_VERIFY_TOKEN', default='')
+WHATSAPP_API_VERSION = config('WHATSAPP_API_VERSION', default='v23.0')
 
 
 # Logging settings

@@ -24,6 +24,7 @@ from .orders import (
     OrderPaymentMethodUpdateView,
     OrderStatusUpdateView,
 )
+from .whatsapp import WhatsAppInboxView, WhatsAppMediaView, WhatsAppReplyView
 
 
 #: Resources whose detail page needs more than the generic field dump.
@@ -71,6 +72,9 @@ __all__ = [
     'ResourceUpdateView',
     'SingletonListView',
     'UserSetPasswordView',
+    'WhatsAppInboxView',
+    'WhatsAppMediaView',
+    'WhatsAppReplyView',
     'resource_detail',
     'resource_list',
 ]

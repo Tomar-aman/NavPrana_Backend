@@ -83,6 +83,27 @@ def build_navigation(user, active_key: str = '') -> List[NavGroup]:
             )
         groups.append(group)
 
+    # The WhatsApp inbox is a chat screen, not a registered resource, so it is
+    # added by hand. The badge counts chats with unread customer messages.
+    if user.has_perm('whatsapp.view_conversation'):
+        from whatsapp.models import Conversation
+
+        support = next((g for g in groups if g.title == 'Support'), None)
+        if support is None:
+            support = NavGroup('Support')
+            groups.insert(len(groups) - (1 if groups[-1].title == 'System' else 0), support)
+        support.items.insert(
+            0,
+            NavItem(
+                label='WhatsApp',
+                url=reverse('admin_panel:whatsapp'),
+                icon='phone',
+                key='whatsapp',
+                is_active=active_key == 'whatsapp',
+                badge=Conversation.objects.filter(unread_count__gt=0).count() or None,
+            ),
+        )
+
     # The activity log reads ``django.contrib.admin.LogEntry``, which every
     # staff member may inspect but only superusers can prune.
     system = next((g for g in groups if g.title == 'System'), None)
