@@ -34,32 +34,32 @@ class SignupSerializer(serializers.ModelSerializer):
         return attrs
     
     def create(self, validated_data):
-        email = validated_data.get('email').lower()
+        # Signup no longer waits on an emailed OTP: customers were dropping off
+        # when the mail arrived late or went to spam. The account is active at
+        # once and the email can be verified later from the profile page.
+        email = validated_data['email'] = validated_data['email'].lower()
         phone_number = validated_data.get('phone_number')
 
-        try:
-            # Check if inactive user exists with same email or phone number
-            user = User.objects.get(email=email, is_active=False)
-            # Update user details
+        # Inactive, unverified rows are signups abandoned at the old OTP step.
+        # Reuse the one holding this email, and release this phone number from
+        # any other, or the unique constraint on phone_number rejects the retry
+        # of someone who first typed a wrong email.
+        abandoned = User.objects.filter(is_active=False, email_verified=False)
+        user = abandoned.filter(email=email).first()
+        if phone_number:
+            stale_phone_holders = abandoned.filter(phone_number=phone_number)
+            if user:
+                stale_phone_holders = stale_phone_holders.exclude(pk=user.pk)
+            stale_phone_holders.update(phone_number=None)
+
+        if user:
             for attr, value in validated_data.items():
                 setattr(user, attr, value)
             user.set_password(validated_data['password'])
+            user.is_active = True
             user.save()
-        except User.DoesNotExist:
-            user = User.objects.create_user(**validated_data)
-            user.is_active = False
-            user.save()
-
-        # Generate and save OTP
-        otp = OTP.issue_for(user)
-
-        # Send OTP
-        send_otp_email.delay(
-            subject="Your OTP Code",
-            template_name="email/otp_email.html",
-            user_id=user.id,
-            otp_code=otp.otp_code,
-        )
+        else:
+            user = User.objects.create_user(**validated_data, is_active=True)
 
         return user
 
@@ -133,9 +133,41 @@ class UserDetailsSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'id', 'first_name', 'last_name', 'email', 'phone_number','profile_picture','is_active'
+            'id', 'first_name', 'last_name', 'email', 'phone_number','profile_picture','is_active',
+            'email_verified',
         ]
-        
+        # This serializer also backs the profile PATCH. Without these a
+        # customer could mark their own email verified, or change the email
+        # and keep the verified flag from the old address.
+        read_only_fields = ['email', 'is_active', 'email_verified']
+
+
+class EmailVerificationOTPSerializer(serializers.Serializer):
+    """Check a code sent to the signed-in user's email from the profile page."""
+    otp = serializers.CharField(min_length=6, max_length=6)
+
+    # A 6-digit code has a million values; without a cap it can be guessed.
+    MAX_ATTEMPTS = 5
+
+    def validate(self, attrs):
+        user = self.context['request'].user
+        otp = OTP.objects.filter(user=user).order_by('-created_at').first()
+        if not otp or otp.is_expired():
+            raise serializers.ValidationError({'otp': "OTP has expired. Please request a new one."})
+        if otp.attempt_count >= self.MAX_ATTEMPTS:
+            raise serializers.ValidationError({'otp': "Too many wrong attempts. Please request a new OTP."})
+        if otp.otp_code != attrs['otp']:
+            OTP.record_failed_attempt(user)
+            raise serializers.ValidationError({'otp': "Invalid OTP."})
+        return attrs
+
+    def save(self, **kwargs):
+        user = self.context['request'].user
+        user.email_verified = True
+        user.save(update_fields=['email_verified'])
+        OTP.objects.filter(user=user).delete()
+        return user
+
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
     password = serializers.CharField(required=True, min_length=8)
@@ -153,7 +185,13 @@ class LoginSerializer(serializers.Serializer):
             raise serializers.ValidationError({"password": "Incorrect password."})
 
         if not user.is_active:
-            raise serializers.ValidationError({"message": "Please verify your account to login."})
+            # Signups left at the old email-OTP step were never activated.
+            # Signup no longer needs the OTP, so let them in now that they have
+            # proved the password; they can verify the email from the profile.
+            if user.email_verified:
+                raise serializers.ValidationError({"message": "This account is disabled. Please contact support."})
+            user.is_active = True
+            user.save(update_fields=['is_active'])
 
         return user
 
