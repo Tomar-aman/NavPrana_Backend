@@ -258,6 +258,10 @@ WHATSAPP_API_VERSION = config('WHATSAPP_API_VERSION', default='v23.0')
 WHATSAPP_OTP_TEMPLATE = config('WHATSAPP_OTP_TEMPLATE', default='verify_otp')
 WHATSAPP_OTP_TEMPLATE_LANGUAGE = config('WHATSAPP_OTP_TEMPLATE_LANGUAGE', default='en_US')
 
+# Forgot-password hands out Django's reset token only after the OTP checks
+# out; the customer then has this long to type the new password.
+PASSWORD_RESET_TIMEOUT = 30 * 60
+
 # Fake COD orders come from numbers nobody answers, so COD is only accepted
 # once the customer has proved they hold their phone with a WhatsApp OTP.
 # Switch off if WhatsApp sending breaks, so COD is not lost with it.

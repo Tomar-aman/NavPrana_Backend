@@ -19,7 +19,7 @@ from users.models import PhoneOTP, User
 
 logger = logging.getLogger(__name__)
 
-RESEND_COOLDOWN = timedelta(seconds=30)
+RESEND_COOLDOWN = timedelta(seconds=60)
 MAX_SENDS_PER_NUMBER_PER_DAY = 5
 MAX_SENDS_PER_IP_PER_HOUR = 10
 

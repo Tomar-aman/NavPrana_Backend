@@ -85,7 +85,14 @@ class OTPVerificationSerializer(serializers.Serializer):
             })
         return user
 
+    # This endpoint signs the user in, so an uncapped 6-digit code could be
+    # brute-forced into anyone's account.
+    MAX_ATTEMPTS = 5
+
     def _get_valid_otp(self, user, otp_code):
+        live = OTP.objects.filter(user=user).order_by('-created_at').first()
+        if live is not None and live.attempt_count >= self.MAX_ATTEMPTS:
+            raise serializers.ValidationError({'otp': "Too many wrong attempts. Please request a new OTP."})
         otp = OTP.objects.filter(user=user, otp_code=otp_code).order_by('-created_at').first()
         if not otp:
             OTP.record_failed_attempt(user)
@@ -240,7 +247,7 @@ class ForgotPasswordOTPSerializer(serializers.Serializer):
     
     def save(self, **kwargs):
         try:
-            user = User.objects.get(email=self.validated_data['email'])
+            user = User.objects.get(email__iexact=self.validated_data['email'])
             otp = OTP.issue_for(user)
             send_otp_email.delay(
                 subject="Reset Your Password - OTP Code",
@@ -256,46 +263,65 @@ class ForgotPasswordOtpVerifySerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
     otp = serializers.CharField(required=True, min_length=6)
 
+    # A 6-digit code has a million values; without a cap it can be guessed.
+    MAX_ATTEMPTS = 5
+
     def validate(self, attrs):
-        user = User.objects.filter(email=attrs['email']).first()
+        user = User.objects.filter(email__iexact=attrs['email']).first()
         if not user:
             raise serializers.ValidationError({"email":"User not found."})
-        otp = OTP.objects.filter(user=user, otp_code=attrs['otp']).order_by('-created_at').first()
-        if not otp:
+        live = OTP.objects.filter(user=user).order_by('-created_at').first()
+        if live is None or live.is_expired():
+            raise serializers.ValidationError({"otp": "OTP has expired. Please request a new one."})
+        if live.attempt_count >= self.MAX_ATTEMPTS:
+            raise serializers.ValidationError({"otp": "Too many wrong attempts. Please request a new OTP."})
+        if live.otp_code != attrs['otp']:
             OTP.record_failed_attempt(user)
-            raise serializers.ValidationError({
-                'otp': "Invalid OTP."
-            })
-        if otp.is_expired():
-            raise serializers.ValidationError({"otp":"OTP has expired."})
+            raise serializers.ValidationError({'otp': "Invalid OTP."})
         attrs['user'] = user
         return attrs
 
     def save(self, **kwargs):
-        # Optionally, you can delete the OTP here
-        OTP.objects.filter(user=self.validated_data['user']).delete()
-        return self.validated_data['user']
+        user = self.validated_data['user']
+        OTP.objects.filter(user=user).delete()
+        # The code reached this inbox, so the address is proven.
+        if not user.email_verified:
+            user.email_verified = True
+            user.save(update_fields=['email_verified'])
+        return user
+
 
 class ForgotPasswordResetSerializer(serializers.Serializer):
-    email = serializers.EmailField(required=True)
+    """
+    Set the new password with the token handed out once the OTP checked out.
+
+    This used to take just an email, so anyone could reset anyone's password
+    without ever seeing an OTP. Django's reset token is tied to the current
+    password hash, so it stops working the moment the password is changed:
+    one reset per verified OTP.
+    """
+    uid = serializers.IntegerField()
+    token = serializers.CharField()
     password = serializers.CharField(required=True, min_length=8)
     confirm_password = serializers.CharField(required=True, min_length=8)
 
     def validate(self, attrs):
-        user = User.objects.filter(email=attrs['email']).first()
-        if not user:
-            raise serializers.ValidationError({"email":"User not found."})
-        
+        from django.contrib.auth.tokens import default_token_generator
+
+        user = User.objects.filter(pk=attrs['uid']).first()
+        if user is None or not default_token_generator.check_token(user, attrs['token']):
+            raise serializers.ValidationError({"token": "This reset session has expired. Please start again."})
         if attrs['password'] != attrs['confirm_password']:
             raise serializers.ValidationError({"confirm_password":"Passwords do not match."})
-        
         attrs['user'] = user
         return attrs
 
     def save(self, **kwargs):
         user = self.validated_data['user']
         user.set_password(self.validated_data['confirm_password'])
-        user.save()
+        # A guest account turns into a real one once it has a password.
+        user.is_guest = False
+        user.save(update_fields=['password', 'is_guest'])
         return user
     
 
