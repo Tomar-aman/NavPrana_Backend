@@ -23,6 +23,7 @@ class Order(models.Model):
         ('shipped', 'Shipped'),
         ('delivered', 'Delivered'),
         ('cancelled', 'Cancelled'),
+        ('returned', 'Returned'),
     )
 
     PAYMENT_STATUS_CHOICES = (
@@ -328,13 +329,13 @@ class Order(models.Model):
 
         Once money has changed hands, editing the contents would leave the
         order and the payment disagreeing with no record of the gap, so paid
-        and refunded orders are frozen. Shipped, delivered and cancelled
-        orders are frozen too: the goods have already gone or the order is
-        closed, and re-pricing either is meaningless.
+        and refunded orders are frozen. Shipped, delivered, cancelled and
+        returned orders are frozen too: the goods have already gone or the
+        order is closed, and re-pricing either is meaningless.
         """
         return (
             self.payment_status not in ('paid', 'refunded')
-            and self.status not in ('shipped', 'delivered', 'cancelled')
+            and self.status not in ('shipped', 'delivered', 'cancelled', 'returned')
         )
 
     def recalculate_subtotal(self):
@@ -662,3 +663,58 @@ class OrderItem(models.Model):
         self.total_price = self.price * self.quantity
         super().save(*args, **kwargs)
 
+
+
+class OrderEmailLog(models.Model):
+    """
+    One customer email about an order's status, and what became of it.
+
+    Written when the email is queued and updated by the task that sends it, so
+    the order page can show what the customer was told and offer a retry when
+    a send failed.
+    """
+
+    TRIGGER_CHOICES = (
+        ('auto', 'Automatic'),
+        ('manual', 'Sent by staff'),
+    )
+    STATE_CHOICES = (
+        ('queued', 'Queued'),
+        ('sent', 'Sent'),
+        ('failed', 'Failed'),
+    )
+
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name='email_logs',
+        verbose_name=_('order'),
+    )
+    status = models.CharField(
+        _('order status'),
+        max_length=20,
+        choices=Order.STATUS_CHOICES,
+        help_text=_('The status this email told the customer about'),
+    )
+    recipient = models.EmailField(_('recipient'))
+    trigger = models.CharField(_('trigger'), max_length=10, choices=TRIGGER_CHOICES)
+    sent_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='+',
+        verbose_name=_('sent by'),
+    )
+    state = models.CharField(_('state'), max_length=10, choices=STATE_CHOICES, default='queued')
+    error = models.TextField(_('error'), blank=True)
+    created_at = models.DateTimeField(_('created at'), auto_now_add=True)
+    sent_at = models.DateTimeField(_('sent at'), null=True, blank=True)
+
+    class Meta:
+        verbose_name = _('order email')
+        verbose_name_plural = _('order emails')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.get_status_display()} email for Order #{self.order_id} ({self.state})'

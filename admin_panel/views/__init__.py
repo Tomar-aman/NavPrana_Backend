@@ -20,6 +20,7 @@ from .crud import (
 from .dashboard import DashboardView
 from .orders import (
     OrderDetailView,
+    OrderEmailSendView,
     OrderItemsUpdateView,
     OrderPaymentMethodUpdateView,
     OrderStatusUpdateView,
@@ -37,6 +38,7 @@ DETAIL_VIEW_OVERRIDES = {
 #: Resources whose list page is not a list. Same reasoning as above.
 LIST_VIEW_OVERRIDES = {
     'pricing': SingletonListView,
+    'order-emails': SingletonListView,
 }
 
 
@@ -57,6 +59,7 @@ __all__ = [
     'DashboardView',
     'GlobalSearchView',
     'OrderDetailView',
+    'OrderEmailSendView',
     'OrderItemsUpdateView',
     'OrderPaymentMethodUpdateView',
     'OrderStatusUpdateView',

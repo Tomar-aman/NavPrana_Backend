@@ -32,6 +32,7 @@ urlpatterns = [
     path('orders/<int:pk>/items/', views.OrderItemsUpdateView.as_view(), name='order_items'),
     path('orders/<int:pk>/payment-method/', views.OrderPaymentMethodUpdateView.as_view(),
          name='order_payment_method'),
+    path('orders/<int:pk>/email/', views.OrderEmailSendView.as_view(), name='order_email'),
 
     # User-specific action
     path('users/<int:pk>/set-password/', views.UserSetPasswordView.as_view(), name='user_set_password'),

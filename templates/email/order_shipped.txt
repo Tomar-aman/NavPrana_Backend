@@ -6,9 +6,12 @@ Hello {{ user.first_name }},
 Great news! Your order has been shipped!
 
 Order Number: #{{ order.id }}
-{% if tracking_number %}Tracking Number: {{ tracking_number }}{% endif %}
+{% if courier_label %}Courier: {{ courier_label }}
+{% endif %}{% if tracking_number %}Tracking Number: {{ tracking_number }}
+{% endif %}{% if tracking_url %}Track on {{ courier_label }}: {{ tracking_url }}
+{% endif %}
 
-You can track your shipment here: {{ frontend_url }}/orders/{{ order.id }}
+You can track your shipment here: {{ frontend_url }}/order-details/{{ order.id }}
 
 Expected Delivery: 3-5 business days
 

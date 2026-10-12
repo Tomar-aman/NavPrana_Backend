@@ -1,0 +1,19 @@
+{% autoescape off %}
+Your Order Has Been Cancelled - Order #{{ order.id }}
+
+Hello {{ user.first_name }},
+
+Your order has been cancelled.
+
+Order Number: #{{ order.id }}
+
+If you paid online, any refund due goes back to your original payment method. If you did not ask for this cancellation, please reply to this email.
+
+View Your Order: {{ frontend_url }}/order-details/{{ order.id }}
+
+Best regards,
+NavPrana Team
+
+---
+For any questions, please contact us at support@navprana.com
+{% endautoescape %}

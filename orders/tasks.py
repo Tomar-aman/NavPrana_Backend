@@ -183,116 +183,63 @@ def send_payment_failed_email(self, order_id, error_message=None):
         raise self.retry(exc=exc, countdown=60 * (2 ** self.request.retries))
 
 
-# @shared_task(bind=True, max_retries=3)
-def send_order_shipped_email(self, order_id, tracking_number=None):
+@shared_task(bind=True, max_retries=3)
+def send_order_status_email(self, log_id):
     """
-    Send order shipped notification email to customer
-    
+    Send the status email recorded in an OrderEmailLog row, and record how it went.
+
     Args:
-        order_id: ID of the order
-        tracking_number: Shipping tracking number (optional)
+        log_id: ID of the OrderEmailLog row queued by orders.notifications
     """
+    from django.utils import timezone
+    from orders.models import OrderEmailLog
+    from orders.notifications import STATUS_EMAILS
+
     try:
-        from orders.models import Order
-        
-        order = Order.objects.select_related(
-            'user', 'address'
-        ).prefetch_related('items__product').get(id=order_id)
-        
+        log = OrderEmailLog.objects.select_related(
+            'order__user', 'order__address'
+        ).get(pk=log_id)
+    except OrderEmailLog.DoesNotExist:
+        logger.error(f'Order email log {log_id} not found')
+        return False
+
+    order = log.order
+    subject, template = STATUS_EMAILS[log.status]
+
+    try:
         context = {
             'order': order,
             'user': order.user,
-            'tracking_number': tracking_number,
+            'items': order.items.select_related('product'),
+            'tracking_number': order.awb_number,
+            'courier_label': order.courier_label,
+            'tracking_url': order.tracking_url,
             'site_url': settings.SITE_URL,
             'frontend_url': settings.FRONTEND_URL,
         }
-        
-        # Render email template
-        html_message = render_to_string(
-            'email/order_shipped.html',
-            context
-        )
-        text_message = render_to_string(
-            'email/order_shipped.txt',
-            context
-        )
-        
-        # Create email
         email = EmailMultiAlternatives(
-            subject=f'Your Order Shipped - Order #{order.id}',
-            body=text_message,
+            subject=subject.format(id=order.id),
+            body=render_to_string(f'{template}.txt', context),
             from_email=settings.DEFAULT_FROM_EMAIL,
-            to=[order.user.email]
+            to=[log.recipient],
         )
-        email.attach_alternative(html_message, "text/html")
-        
-        # Send email
+        email.attach_alternative(render_to_string(f'{template}.html', context), 'text/html')
         email.send(fail_silently=False)
-        
-        logger.info(f'Order shipped email sent for order {order_id}')
-        return True
-        
-    except Order.DoesNotExist:
-        logger.error(f'Order {order_id} not found')
-        return False
     except Exception as exc:
-        logger.error(f'Error sending order shipped email for order {order_id}: {str(exc)}')
+        logger.error(f'Error sending {log.status} email for order {order.id}: {exc}')
+        error = str(exc)[:1000]
+        if self.request.retries >= self.max_retries:
+            OrderEmailLog.objects.filter(pk=log_id).update(state='failed', error=error)
+            return False
+        # Still queued: the next attempt may succeed. Keep the reason visible.
+        OrderEmailLog.objects.filter(pk=log_id).update(error=error)
         raise self.retry(exc=exc, countdown=60 * (2 ** self.request.retries))
 
-
-# @shared_task(bind=True, max_retries=3)
-def send_order_delivered_email(self, order_id):
-    """
-    Send order delivery confirmation email to customer
-    
-    Args:
-        order_id: ID of the order
-    """
-    try:
-        from orders.models import Order
-        
-        order = Order.objects.select_related(
-            'user', 'address'
-        ).prefetch_related('items__product').get(id=order_id)
-        
-        context = {
-            'order': order,
-            'user': order.user,
-            'site_url': settings.SITE_URL,
-            'frontend_url': settings.FRONTEND_URL,
-        }
-        
-        # Render email template
-        html_message = render_to_string(
-            'email/order_delivered.html',
-            context
-        )
-        text_message = render_to_string(
-            'email/order_delivered.txt',
-            context
-        )
-        
-        # Create email
-        email = EmailMultiAlternatives(
-            subject=f'Order Delivered - Order #{order.id}',
-            body=text_message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            to=[order.user.email]
-        )
-        email.attach_alternative(html_message, "text/html")
-        
-        # Send email
-        email.send(fail_silently=False)
-        
-        logger.info(f'Order delivered email sent for order {order_id}')
-        return True
-        
-    except Order.DoesNotExist:
-        logger.error(f'Order {order_id} not found')
-        return False
-    except Exception as exc:
-        logger.error(f'Error sending order delivered email for order {order_id}: {str(exc)}')
-        raise self.retry(exc=exc, countdown=60 * (2 ** self.request.retries))
+    OrderEmailLog.objects.filter(pk=log_id).update(
+        state='sent', error='', sent_at=timezone.now()
+    )
+    logger.info(f'Order {log.status} email sent for order {order.id}')
+    return True
 
 
 @shared_task(bind=True, max_retries=3)

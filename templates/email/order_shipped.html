@@ -24,15 +24,21 @@
             
             <div class="info-box">
                 <p><strong>Great news! Your order has been shipped!</strong></p>
+                {% if courier_label %}
+                <p><strong>Courier:</strong> {{ courier_label }}</p>
+                {% endif %}
                 {% if tracking_number %}
                 <p><strong>Tracking Number:</strong> {{ tracking_number }}</p>
+                {% endif %}
+                {% if tracking_url %}
+                <p><a href="{{ tracking_url }}">Track on {{ courier_label }} website</a></p>
                 {% endif %}
                 <p><strong>Expected Delivery:</strong> 3-5 business days</p>
             </div>
             
             <p>You can track your shipment and view order details here:</p>
             
-            <a href="{{ frontend_url }}/orders/{{ order.id }}" class="button">Track Your Order</a>
+            <a href="{{ frontend_url }}/order-details/{{ order.id }}" class="button">Track Your Order</a>
             
             <p><br>Best regards,<br><strong>NavPrana Team</strong></p>
         </div>

@@ -6,6 +6,7 @@ from django.utils.html import format_html
 
 from .invoice_utils import generate_and_merge_invoices_pdf
 from .models import Order, OrderItem
+from .notifications import notify_status_change
 
 
 logger = logging.getLogger(__name__)
@@ -35,6 +36,12 @@ class OrderAdmin(admin.ModelAdmin):
         ('Timestamps', {'fields': ('created_at', 'updated_at')}),
     )
     inlines = [OrderItemInline]
+
+    def save_model(self, request, obj, form, change):
+        previous_status = form.initial.get('status') if change else None
+        super().save_model(request, obj, form, change)
+        if change and notify_status_change(obj, previous_status, sent_by=request.user):
+            self.message_user(request, f'Emailing {obj.user.email} about the new status.')
 
     @admin.display(description='Tracking link')
     def track_link(self, obj):

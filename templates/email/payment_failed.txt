@@ -10,7 +10,7 @@ Error: {{ error_message }}
 
 Please try again or use a different payment method. If the issue persists, please contact our support team.
 
-You can retry your payment here: {{ frontend_url }}/orders/{{ order.id }}
+You can retry your payment here: {{ frontend_url }}/order-details/{{ order.id }}
 
 Best regards,
 NavPrana Team
