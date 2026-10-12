@@ -10,7 +10,7 @@ Total Amount: ₹{{ order.final_amount }}
 Date: {{ order.created_at|date:"F d, Y" }}
 
 Best regards,
-NavPrana Team
+NavPrana Organics Team
 
 ---
 For any questions, please contact us at support@navprana.com

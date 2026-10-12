@@ -1,0 +1,40 @@
+{% comment %}Items, the money breakdown and the delivery address. Needs `order` and `items`.{% endcomment %}
+<h3 style="color: #2d6a4f; font-size: 16px; margin: 24px 0 8px;">Order summary</h3>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; font-size: 14px; color: #555;">
+    {% for item in items %}
+    <tr>
+        <td style="padding: 8px 0; border-bottom: 1px solid #eee;">
+            {{ item.product.name }}{% if item.product.size %} <span style="color: #888;">({{ item.product.size }})</span>{% endif %}
+            <br><span style="color: #888; font-size: 13px;">{{ item.quantity }} × ₹{{ item.price }}</span>
+        </td>
+        <td style="padding: 8px 0; border-bottom: 1px solid #eee; text-align: right; vertical-align: top;">₹{{ item.total_price }}</td>
+    </tr>
+    {% endfor %}
+    <tr><td style="padding: 8px 0 2px;">Subtotal</td><td style="padding: 8px 0 2px; text-align: right;">₹{{ order.total_amount }}</td></tr>
+    {% if order.discount_amount %}
+    <tr><td style="padding: 2px 0;">Discount{% if order.coupon %} ({{ order.coupon.coupon_code }}){% endif %}</td><td style="padding: 2px 0; text-align: right; color: #2d6a4f;">−₹{{ order.discount_amount }}</td></tr>
+    {% endif %}
+    <tr><td style="padding: 2px 0;">Shipping</td><td style="padding: 2px 0; text-align: right;">{% if order.shipping_fee %}₹{{ order.shipping_fee }}{% else %}Free{% endif %}</td></tr>
+    {% if order.handling_fee %}
+    <tr><td style="padding: 2px 0;">COD handling</td><td style="padding: 2px 0; text-align: right;">₹{{ order.handling_fee }}</td></tr>
+    {% endif %}
+    {% if order.prepaid_discount %}
+    <tr><td style="padding: 2px 0;">Prepaid discount</td><td style="padding: 2px 0; text-align: right; color: #2d6a4f;">−₹{{ order.prepaid_discount }}</td></tr>
+    {% endif %}
+    {% if order.tax_amount %}
+    <tr><td style="padding: 2px 0;">Tax</td><td style="padding: 2px 0; text-align: right;">₹{{ order.tax_amount }}</td></tr>
+    {% endif %}
+    <tr>
+        <td style="padding: 10px 0 0; border-top: 2px solid #2d6a4f; font-weight: bold; color: #333; font-size: 15px;">Total</td>
+        <td style="padding: 10px 0 0; border-top: 2px solid #2d6a4f; font-weight: bold; color: #333; font-size: 15px; text-align: right;">₹{{ order.final_amount }}</td>
+    </tr>
+</table>
+{% if order.address %}
+<h3 style="color: #2d6a4f; font-size: 16px; margin: 24px 0 8px;">Delivering to</h3>
+<p style="font-size: 14px; color: #555; margin: 0; line-height: 1.5;">
+    {{ order.address.address_line1 }}<br>
+    {% if order.address.address_line2 %}{{ order.address.address_line2 }}<br>{% endif %}
+    {{ order.address.city }}, {{ order.address.state }} {{ order.address.postal_code }}<br>
+    {{ order.address.country }}
+</p>
+{% endif %}

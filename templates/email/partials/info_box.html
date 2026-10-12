@@ -1,0 +1,4 @@
+{% comment %}A tinted callout. Pass tone="warning" or tone="danger" for those colours; default is brand green.{% endcomment %}
+<div style="background-color: {% if tone == 'danger' %}#fdecea{% elif tone == 'warning' %}#fff8e1{% else %}#e9f5ee{% endif %}; border-left: 4px solid {% if tone == 'danger' %}#c0392b{% elif tone == 'warning' %}#e0a800{% else %}#2d6a4f{% endif %}; padding: 14px 16px; margin: 18px 0; border-radius: 4px; font-size: 15px; color: #444;">
+    {{ text }}
+</div>
