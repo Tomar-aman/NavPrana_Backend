@@ -48,10 +48,10 @@
                 <tbody>
                     {% for item in items %}
                     <tr>
-                        <td>{{ item.product.name }} ({{ item.size }})</td>
+                        <td>{{ item.product.name }} ({{ item.product.size }})</td>
                         <td>{{ item.quantity }}</td>
                         <td>₹{{ item.price }}</td>
-                        <td>₹{{ item.item_total }}</td>
+                        <td>₹{{ item.total_price }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>

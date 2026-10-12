@@ -13,6 +13,9 @@ from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.views.generic import View
 
+from api_settings.models import OrderEmailSettings
+from orders.notifications import has_status_email, notify_status_change, queue_status_email
+
 from ..audit import log_change
 from ..forms import PanelOrderItemFormSet
 from ..columns import ORDER_STATUS_TONES, PAYMENT_STATUS_TONES, TRANSACTION_STATUS_TONES
@@ -74,6 +77,10 @@ class OrderDetailView(ResourceDetailView):
                     'admin_panel:order_payment_method', args=[order.pk]
                 ),
                 'payment_method_choices': order.PAYMENT_METHOD_CHOICES,
+                'email_logs': order.email_logs.select_related('sent_by')[:10],
+                'email_url': reverse('admin_panel:order_email', args=[order.pk]),
+                'status_has_email': has_status_email(order.status),
+                'status_email_auto': OrderEmailSettings.load().sends_for(order.status),
             }
         )
         return context
@@ -125,6 +132,7 @@ class OrderStatusUpdateView(OrderActionView):
             messages.info(request, 'The order is already in that status.')
             return redirect(back)
 
+        previous_status = order.status
         previous = order.get_status_display()
         order.status = target
         # Money is settled when the order is created and left alone afterwards,
@@ -133,9 +141,38 @@ class OrderStatusUpdateView(OrderActionView):
 
         log_change(request.user, order, ['status'])
         invalidate_alerts()
+        emailed = notify_status_change(order, previous_status, sent_by=request.user)
         messages.success(
             request,
-            f'Order #{order.pk} moved from {previous} to {order.get_status_display()}.',
+            f'Order #{order.pk} moved from {previous} to {order.get_status_display()}.'
+            + (f' Emailing {emailed.recipient}.' if emailed else ''),
+        )
+        return redirect(back)
+
+
+class OrderEmailSendView(OrderActionView):
+    """Send the customer the email for the order's current status, by hand.
+
+    Ignores Order Email Settings on purpose: those switches decide what goes out
+    automatically, and a staffer pressing this button has already decided. Also
+    the way to retry an email that failed.
+    """
+
+    def post(self, request, pk):
+        order, back = self.load_order(request, pk)
+
+        if not has_status_email(order.status):
+            messages.error(
+                request, f'There is no customer email for the {order.get_status_display()} status.'
+            )
+            return redirect(back)
+        if not order.user.email:
+            messages.error(request, 'This customer has no email address on file.')
+            return redirect(back)
+
+        log = queue_status_email(order, trigger='manual', sent_by=request.user)
+        messages.success(
+            request, f'{order.get_status_display()} email queued for {log.recipient}.'
         )
         return redirect(back)
 

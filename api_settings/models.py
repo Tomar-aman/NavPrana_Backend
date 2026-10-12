@@ -129,6 +129,78 @@ class PricingSettings(models.Model):
         return obj
 
 
+class OrderEmailSettings(models.Model):
+    """
+    Which order status changes email the customer. One row, like pricing.
+
+    These switches only govern the email sent automatically when staff move an
+    order to a new status. Staff can still send any status email by hand from
+    the order page, and the payment confirmation and invoice sent at checkout
+    are not affected.
+    """
+
+    SINGLETON_ID = 1
+
+    #: Order status -> the switch that covers it. Statuses missing here
+    #: (pending, failed) never email from a status change.
+    STATUS_FIELDS = {
+        'accepted': 'notify_accepted',
+        'processing': 'notify_processing',
+        'shipped': 'notify_shipped',
+        'delivered': 'notify_delivered',
+        'cancelled': 'notify_cancelled',
+        'returned': 'notify_returned',
+    }
+
+    enabled = models.BooleanField(
+        _('email customers on status changes'),
+        default=True,
+        help_text=_(
+            'Master switch. Off: changing an order status never emails the '
+            'customer, whatever the switches below say. Emails sent by hand '
+            'from an order page still go out.'
+        ),
+    )
+    notify_accepted = models.BooleanField(_('accepted'), default=True)
+    notify_processing = models.BooleanField(_('processing'), default=True)
+    notify_shipped = models.BooleanField(
+        _('shipped'), default=True,
+        help_text=_('Includes the courier, AWB and tracking link.'),
+    )
+    notify_delivered = models.BooleanField(_('delivered'), default=True)
+    notify_cancelled = models.BooleanField(_('cancelled'), default=True)
+    notify_returned = models.BooleanField(_('returned'), default=True)
+
+    updated_at = models.DateTimeField(_('updated at'), auto_now=True)
+
+    class Meta:
+        verbose_name = _('Order Email Settings')
+        verbose_name_plural = _('Order Email Settings')
+
+    def __str__(self):
+        return 'Order Email Settings'
+
+    def save(self, *args, **kwargs):
+        # Same reasoning as PricingSettings: there is only ever one row.
+        self.pk = self.SINGLETON_ID
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        """Ignored. The row is the configuration."""
+        return 0, {}
+
+    @classmethod
+    def load(cls):
+        """The current switches, created with the defaults above on first use."""
+        obj, _created = cls.objects.get_or_create(pk=cls.SINGLETON_ID)
+        return obj
+
+    def sends_for(self, status):
+        """Whether moving an order to ``status`` should email the customer."""
+        field = self.STATUS_FIELDS.get(status)
+        return bool(self.enabled and field and getattr(self, field))
+
+
 class SMTPSettings(models.Model):
     host = models.CharField(
         _('SMTP Host'),

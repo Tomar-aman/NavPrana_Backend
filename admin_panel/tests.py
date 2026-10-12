@@ -7,15 +7,19 @@ the model-specific form rules, and the query budget of the list pages.
 
 from datetime import timedelta
 from decimal import Decimal
+from unittest import mock
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
-from django.test import TestCase
+from django.core import mail
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from api_settings.models import PricingSettings
-from orders.models import Order, OrderItem
+from api_settings.models import OrderEmailSettings, PricingSettings
+from orders.models import Order, OrderEmailLog, OrderItem
+from orders.notifications import STATUS_EMAILS
+from orders.tasks import send_order_status_email
 from product.models import Category, Product
 from users.models import OTP, UserAddress
 
@@ -787,3 +791,177 @@ class BrokenStrTests(TestCase):
             phone_number='+911234567890', subject='Delivery', message='Where is my order?',
         )
         self.assertIn('Asha Rao', str(query))
+
+
+@override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+class OrderStatusEmailTests(TestCase):
+    """Moving one order emails its customer; bulk moves and switched-off statuses do not."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.superuser = User.objects.create_superuser('root@example.com', 'pw-Str0ng!123')
+        cls.customer = User.objects.create_user('buyer@example.com', 'pw-Str0ng!123')
+        cls.customer.first_name = 'Asha'
+        cls.customer.save()
+        cls.address = UserAddress.objects.create(
+            user=cls.customer, address_line1='1 Test Road', city='Morena',
+            state='Madhya Pradesh', postal_code='476001', country='India',
+        )
+        cls.product = make_product()
+
+    def setUp(self):
+        self.client.force_login(self.superuser)
+        self.order = Order.objects.create(
+            user=self.customer, address=self.address,
+            total_amount=Decimal('900.00'), payment_status='paid', status='accepted',
+        )
+        OrderItem.objects.create(
+            order=self.order, product=self.product, quantity=1, price=Decimal('900.00')
+        )
+        patcher = mock.patch.object(send_order_status_email, 'delay')
+        self.delay = patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def quick_status(self, status):
+        with self.captureOnCommitCallbacks(execute=True):
+            return self.client.post(
+                reverse('admin_panel:order_status', args=[self.order.pk]), {'status': status}
+            )
+
+    def test_quick_status_change_queues_an_email(self):
+        self.quick_status('processing')
+        log = OrderEmailLog.objects.get(order=self.order)
+        self.assertEqual((log.status, log.trigger, log.recipient), ('processing', 'auto', 'buyer@example.com'))
+        self.delay.assert_called_once_with(log.pk)
+
+    def test_returned_is_a_status_and_emails(self):
+        self.quick_status('returned')
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, 'returned')
+        self.assertTrue(OrderEmailLog.objects.filter(order=self.order, status='returned').exists())
+
+    def test_statuses_without_an_email_send_nothing(self):
+        self.quick_status('pending')
+        self.assertFalse(OrderEmailLog.objects.exists())
+
+    def test_master_switch_off_sends_nothing(self):
+        settings_row = OrderEmailSettings.load()
+        settings_row.enabled = False
+        settings_row.save()
+        self.quick_status('processing')
+        self.assertFalse(OrderEmailLog.objects.exists())
+        self.delay.assert_not_called()
+
+    def test_one_status_can_be_switched_off(self):
+        settings_row = OrderEmailSettings.load()
+        settings_row.notify_processing = False
+        settings_row.save()
+        self.quick_status('processing')
+        self.assertFalse(OrderEmailLog.objects.exists())
+        self.quick_status('cancelled')
+        self.assertTrue(OrderEmailLog.objects.filter(status='cancelled').exists())
+
+    def test_the_order_form_emails_with_tracking_details(self):
+        url = registry.get('orders').url('edit', self.order.pk)
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(url, {
+                'status': 'shipped', 'payment_status': 'paid',
+                'courier': 'ekart', 'awb_number': 'ek123', 'notes': '',
+            })
+        log = OrderEmailLog.objects.get(order=self.order, status='shipped')
+
+        send_order_status_email.apply(args=[log.pk])
+        log.refresh_from_db()
+        self.assertEqual(log.state, 'sent')
+        body = mail.outbox[0].body
+        self.assertIn('Ekart', body)
+        self.assertIn('EK123', body)
+        self.assertIn('ekartlogistics.com/shipmenttrack/EK123', body)
+
+    def test_saving_the_form_without_a_status_change_sends_nothing(self):
+        url = registry.get('orders').url('edit', self.order.pk)
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(url, {
+                'status': 'accepted', 'payment_status': 'paid',
+                'courier': '', 'awb_number': '', 'notes': 'Called the customer',
+            })
+        self.assertFalse(OrderEmailLog.objects.exists())
+
+    def test_bulk_status_changes_never_email(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(registry.get('orders').url('list'), {
+                'action': 'mark_delivered', 'selected': [self.order.pk],
+            })
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, 'delivered')
+        self.assertFalse(OrderEmailLog.objects.exists())
+
+    def test_saving_an_order_in_code_does_not_email(self):
+        """Payment webhooks save orders too; they send their own emails."""
+        with self.captureOnCommitCallbacks(execute=True):
+            self.order.status = 'processing'
+            self.order.save()
+        self.assertFalse(OrderEmailLog.objects.exists())
+
+    def test_manual_send_ignores_the_switches(self):
+        settings_row = OrderEmailSettings.load()
+        settings_row.enabled = False
+        settings_row.save()
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(reverse('admin_panel:order_email', args=[self.order.pk]))
+        log = OrderEmailLog.objects.get(order=self.order)
+        self.assertEqual((log.status, log.trigger, log.sent_by), ('accepted', 'manual', self.superuser))
+        self.delay.assert_called_once_with(log.pk)
+
+    def test_manual_send_needs_an_email_address(self):
+        self.customer.email = ''
+        self.customer.save()
+        self.client.post(reverse('admin_panel:order_email', args=[self.order.pk]))
+        self.assertFalse(OrderEmailLog.objects.exists())
+
+    def test_the_detail_page_lists_sent_emails(self):
+        OrderEmailLog.objects.create(
+            order=self.order, status='accepted', recipient='buyer@example.com',
+            trigger='auto', state='failed', error='SMTP refused',
+        )
+        response = self.client.get(registry.get('orders').url('detail', self.order.pk))
+        self.assertContains(response, 'Send Accepted email')
+        self.assertContains(response, 'SMTP refused')
+
+    def test_every_status_email_renders(self):
+        for status in STATUS_EMAILS:
+            with self.subTest(status=status):
+                log = OrderEmailLog.objects.create(
+                    order=self.order, status=status, recipient='buyer@example.com', trigger='manual',
+                )
+                send_order_status_email.apply(args=[log.pk])
+                log.refresh_from_db()
+                self.assertEqual(log.state, 'sent', log.error)
+        self.assertEqual(len(mail.outbox), len(STATUS_EMAILS))
+        self.assertTrue(all('Asha' in m.body for m in mail.outbox))
+
+    def test_a_failed_send_is_recorded(self):
+        log = OrderEmailLog.objects.create(
+            order=self.order, status='delivered', recipient='buyer@example.com', trigger='auto',
+        )
+        with mock.patch('django.core.mail.EmailMultiAlternatives.send', side_effect=OSError('SMTP down')):
+            send_order_status_email.apply(args=[log.pk], retries=send_order_status_email.max_retries)
+        log.refresh_from_db()
+        self.assertEqual(log.state, 'failed')
+        self.assertIn('SMTP down', log.error)
+
+
+class OrderEmailSettingsPanelTests(TestCase):
+    def test_the_section_opens_the_settings_row(self):
+        superuser = User.objects.create_superuser('root@example.com', 'pw-Str0ng!123')
+        self.client.force_login(superuser)
+        resource = registry.get('order-emails')
+        response = self.client.get(resource.url('list'))
+        self.assertRedirects(response, resource.url('edit', OrderEmailSettings.load().pk))
+        response = self.client.post(resource.url('edit', 1), {
+            'enabled': 'on', 'notify_shipped': 'on',
+        })
+        self.assertEqual(response.status_code, 302)
+        settings_row = OrderEmailSettings.load()
+        self.assertTrue(settings_row.sends_for('shipped'))
+        self.assertFalse(settings_row.sends_for('processing'))

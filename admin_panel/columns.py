@@ -27,6 +27,7 @@ ORDER_STATUS_TONES = {
     'shipped': 'purple',
     'delivered': 'success',
     'cancelled': 'neutral',
+    'returned': 'warning',
     'failed': 'danger',
 }
 

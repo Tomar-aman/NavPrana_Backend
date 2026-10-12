@@ -251,6 +251,54 @@
         </section>
       {% endif %}
 
+      <section class="card">
+        <h2 class="card__title">Customer emails</h2>
+        {% if not object.user.email %}
+          <p class="card__note">This customer has no email address on file, so no status emails can be sent.</p>
+        {% elif not status_has_email %}
+          <p class="card__note">There is no customer email for the {{ object.get_status_display }} status.</p>
+        {% else %}
+          <p class="card__note">
+            {% if status_email_auto %}
+              Moving an order to {{ object.get_status_display }} emails the customer automatically.
+            {% else %}
+              Automatic emails for {{ object.get_status_display }} are switched off in System → Order Emails.
+            {% endif %}
+          </p>
+          {% if can_edit %}
+            <form method="post" action="{{ email_url }}">
+              {% csrf_token %}
+              <input type="hidden" name="next" value="{{ request.get_full_path }}">
+              <button type="submit" class="btn btn--subtle btn--block" data-loading="Sending…"
+                      data-confirm="Email {{ object.user.email }} about order #{{ object.pk }} being {{ object.get_status_display|lower }}?">
+                {% panel_icon 'mail' 15 %} Send {{ object.get_status_display }} email
+              </button>
+            </form>
+          {% endif %}
+        {% endif %}
+        {% if email_logs %}
+          <ul class="timeline">
+            {% for log in email_logs %}
+              <li>
+                <span class="timeline__dot timeline__dot--{% if log.state == 'sent' %}success{% elif log.state == 'failed' %}danger{% else %}warning{% endif %}"></span>
+                <div class="timeline__body">
+                  <p class="timeline__text">
+                    <strong>{{ log.get_status_display }}</strong> · {{ log.get_state_display }}
+                  </p>
+                  <p class="timeline__meta">
+                    {{ log.recipient }} · {% if log.trigger == 'manual' %}sent by {{ log.sent_by.email|default:"staff" }}{% else %}automatic{% endif %}
+                    · {{ log.created_at|date:"j M Y, H:i" }}
+                  </p>
+                  {% if log.error %}
+                    <p class="timeline__error">{% panel_icon 'alert' 13 %} {{ log.error|truncatechars:160 }}</p>
+                  {% endif %}
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      </section>
+
       {% if object.notes %}
         <section class="card">
           <h2 class="card__title">Internal notes</h2>

@@ -1,0 +1,19 @@
+{% autoescape off %}
+We Have Received Your Return - Order #{{ order.id }}
+
+Hello {{ user.first_name }},
+
+Your returned order has reached us.
+
+Order Number: #{{ order.id }}
+
+If a refund is due, it goes back to your original payment method once the return has been checked.
+
+View Your Order: {{ frontend_url }}/order-details/{{ order.id }}
+
+Best regards,
+NavPrana Team
+
+---
+For any questions, please contact us at support@navprana.com
+{% endautoescape %}

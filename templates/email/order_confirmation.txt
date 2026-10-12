@@ -12,9 +12,9 @@ Order Details:
 
 Items Ordered:
 {% for item in items %}
-  - {{ item.product.name }} ({{ item.size }})
+  - {{ item.product.name }} ({{ item.product.size }})
     Quantity: {{ item.quantity }}
-    Price: ₹{{ item.price }} × {{ item.quantity }} = ₹{{ item.item_total }}
+    Price: ₹{{ item.price }} × {{ item.quantity }} = ₹{{ item.total_price }}
 {% endfor %}
 
 Order Summary:

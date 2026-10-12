@@ -9,11 +9,12 @@ actually searches by, which fields are safe to edit given what the model's
 Read this file as the answer to "how should each model behave in the admin".
 """
 
+from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.db.models import Count
 
-from api_settings.models import PricingSettings, SMTPSettings
+from api_settings.models import OrderEmailSettings, PricingSettings, SMTPSettings
 from blogs.models import Blog, BlogCategory
 from cart.models import Cart
 from contact.models import (
@@ -30,6 +31,7 @@ from coupon.models import Coupon, CouponUsage, TempCoupon, UserSpinLimit
 from lab_report.models import LabReport
 from orders.couriers import COURIER_CHOICES
 from orders.models import Order
+from orders.notifications import notify_status_change
 from product.models import Category, Product, ProductReview
 from public_data.models import InstagramReel
 from transactions.models import TransactionLog
@@ -102,6 +104,15 @@ class OrderResource(PanelResource):
     def object_title(self, obj):
         return f'Order #{obj.pk}'
 
+    def save_form(self, form, request, created):
+        # The form has already copied the new status onto the instance, so the
+        # status it was opened with is the one in ``initial``.
+        previous_status = form.initial.get('status')
+        order = super().save_form(form, request, created)
+        if notify_status_change(order, previous_status, sent_by=request.user):
+            messages.info(request, f'Emailing {order.user.email} about the new status.')
+        return order
+
 
 class UserResource(PanelResource):
     def object_title(self, obj):
@@ -132,6 +143,17 @@ class PricingSettingsResource(PanelResource):
 
     def object_title(self, obj):
         return 'Pricing Settings'
+
+
+class OrderEmailSettingsResource(PanelResource):
+    """Which status changes email the customer — one row, edited as a page."""
+
+    def base_queryset(self):
+        OrderEmailSettings.load()
+        return OrderEmailSettings.objects.all()
+
+    def object_title(self, obj):
+        return 'Order Emails'
 
 
 # ---------------------------------------------------------------------------
@@ -184,9 +206,11 @@ registry.register(
             ('Internal', ('notes',)),
         ),
         bulk_actions=(
-            BulkAction('mark_processing', 'Mark as processing', bulk_status_setter('processing'), confirm='Move the selected orders to processing?'),
-            BulkAction('mark_delivered', 'Mark as delivered', bulk_status_setter('delivered'), confirm='Mark the selected orders delivered?'),
-            BulkAction('mark_cancelled', 'Mark as cancelled', bulk_status_setter('cancelled'), tone='danger', confirm='Cancel the selected orders?'),
+            # Bulk moves never email customers; see orders.notifications.
+            BulkAction('mark_processing', 'Mark as processing', bulk_status_setter('processing'), confirm='Move the selected orders to processing? Customers are not emailed.'),
+            BulkAction('mark_delivered', 'Mark as delivered', bulk_status_setter('delivered'), confirm='Mark the selected orders delivered? Customers are not emailed.'),
+            BulkAction('mark_returned', 'Mark as returned', bulk_status_setter('returned'), confirm='Mark the selected orders returned? Customers are not emailed.'),
+            BulkAction('mark_cancelled', 'Mark as cancelled', bulk_status_setter('cancelled'), tone='danger', confirm='Cancel the selected orders? Customers are not emailed.'),
             BulkAction('download_invoices', 'Download invoices (single PDF)', download_order_invoices, permission='view'),
         ),
         help_text=(
@@ -1046,6 +1070,61 @@ registry.register(
             'placed keep what their customer was quoted. The Shipping Policy '
             'page states the free-delivery threshold in words, so update that '
             'page too when you change it here.'
+        ),
+    )
+)
+
+registry.register(
+    OrderEmailSettingsResource(
+        key='order-emails',
+        model=OrderEmailSettings,
+        group='System',
+        icon='mail',
+        label='Order email settings',
+        label_plural='Order Emails',
+        description='Which order status changes email the customer.',
+        can_add=False,
+        can_delete=False,
+        can_export=False,
+        columns=(
+            Column('enabled', 'Status emails', kind='bool', is_link=True),
+            Column('updated_at', 'Updated', kind='datetime'),
+        ),
+        default_ordering='pk',
+        form_fields=(
+            'enabled', 'notify_accepted', 'notify_processing', 'notify_shipped',
+            'notify_delivered', 'notify_cancelled', 'notify_returned',
+        ),
+        fieldsets=(
+            ('Master switch', ('enabled',)),
+            ('Email the customer when an order moves to', (
+                'notify_accepted', 'notify_processing', 'notify_shipped',
+                'notify_delivered', 'notify_cancelled', 'notify_returned',
+            )),
+        ),
+        detail_panels=(
+            DetailPanel(
+                title='Master switch',
+                columns=(Column('enabled', 'Email customers on status changes', kind='bool', sortable=False),),
+            ),
+            DetailPanel(
+                title='Email the customer when an order moves to',
+                columns=(
+                    Column('notify_accepted', 'Accepted', kind='bool', sortable=False),
+                    Column('notify_processing', 'Processing', kind='bool', sortable=False),
+                    Column('notify_shipped', 'Shipped', kind='bool', sortable=False),
+                    Column('notify_delivered', 'Delivered', kind='bool', sortable=False),
+                    Column('notify_cancelled', 'Cancelled', kind='bool', sortable=False),
+                    Column('notify_returned', 'Returned', kind='bool', sortable=False),
+                    Column('updated_at', 'Last updated', kind='datetime', sortable=False),
+                ),
+            ),
+        ),
+        help_text=(
+            'Applies when staff change one order\'s status from the order page, '
+            'the order form or Django admin. Bulk status changes never email '
+            'anyone. Any status email can still be sent by hand from an order '
+            'page, whatever is switched off here.'
         ),
     )
 )
