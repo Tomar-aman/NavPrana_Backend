@@ -10,7 +10,7 @@ Order Number: #{{ order.id }}
 Please leave a review and let us know about your experience.
 
 Best regards,
-NavPrana Team
+NavPrana Organics Team
 
 ---
 For any questions, please contact us at support@navprana.com

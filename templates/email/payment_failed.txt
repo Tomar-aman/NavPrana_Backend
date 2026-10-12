@@ -13,7 +13,7 @@ Please try again or use a different payment method. If the issue persists, pleas
 You can retry your payment here: {{ frontend_url }}/order-details/{{ order.id }}
 
 Best regards,
-NavPrana Team
+NavPrana Organics Team
 
 ---
 For any questions, please contact us at support@navprana.com

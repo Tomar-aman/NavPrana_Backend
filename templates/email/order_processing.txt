@@ -12,7 +12,7 @@ We will email you the courier and tracking details as soon as it ships.
 View Your Order: {{ frontend_url }}/order-details/{{ order.id }}
 
 Best regards,
-NavPrana Team
+NavPrana Organics Team
 
 ---
 For any questions, please contact us at support@navprana.com

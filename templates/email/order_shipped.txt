@@ -16,7 +16,7 @@ You can track your shipment here: {{ frontend_url }}/order-details/{{ order.id }
 Expected Delivery: 3-5 business days
 
 Best regards,
-NavPrana Team
+NavPrana Organics Team
 
 ---
 For any questions, please contact us at support@navprana.com

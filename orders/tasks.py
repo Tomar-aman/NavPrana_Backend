@@ -14,6 +14,20 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def _order_context(order, **extra):
+    """What every order email template needs, plus anything email-specific."""
+    context = {
+        'order': order,
+        'user': order.user,
+        'items': order.items.select_related('product'),
+        'order_url': f'{settings.FRONTEND_URL}/order-details/{order.id}',
+        'site_url': settings.SITE_URL,
+        'frontend_url': settings.FRONTEND_URL,
+    }
+    context.update(extra)
+    return context
+
+
 # @shared_task(bind=True, max_retries=3)
 def send_order_confirmation_email(self, order_id):
     """
@@ -29,13 +43,7 @@ def send_order_confirmation_email(self, order_id):
             'user', 'address', 'coupon'
         ).prefetch_related('items__product').get(id=order_id)
         
-        context = {
-            'order': order,
-            'user': order.user,
-            'items': order.items.all(),
-            'site_url': settings.SITE_URL,
-            'frontend_url': settings.FRONTEND_URL,
-        }
+        context = _order_context(order)
         
         # Render email template
         html_message = render_to_string(
@@ -87,13 +95,7 @@ def send_payment_success_email(self, order_id, transaction_id):
             'user', 'address'
         ).prefetch_related('items__product').get(id=order_id)
         
-        context = {
-            'order': order,
-            'user': order.user,
-            'transaction_id': transaction_id,
-            'site_url': settings.SITE_URL,
-            'frontend_url': settings.FRONTEND_URL,
-        }
+        context = _order_context(order, transaction_id=transaction_id)
         
         # Render email template
         html_message = render_to_string(
@@ -142,13 +144,10 @@ def send_payment_failed_email(self, order_id, error_message=None):
         
         order = Order.objects.select_related('user').get(id=order_id)
         
-        context = {
-            'order': order,
-            'user': order.user,
-            'error_message': error_message or 'An error occurred during payment processing',
-            'site_url': settings.SITE_URL,
-            'frontend_url': settings.FRONTEND_URL,
-        }
+        context = _order_context(
+            order,
+            error_message=error_message or 'An error occurred during payment processing',
+        )
         
         # Render email template
         html_message = render_to_string(
@@ -207,16 +206,12 @@ def send_order_status_email(self, log_id):
     subject, template = STATUS_EMAILS[log.status]
 
     try:
-        context = {
-            'order': order,
-            'user': order.user,
-            'items': order.items.select_related('product'),
-            'tracking_number': order.awb_number,
-            'courier_label': order.courier_label,
-            'tracking_url': order.tracking_url,
-            'site_url': settings.SITE_URL,
-            'frontend_url': settings.FRONTEND_URL,
-        }
+        context = _order_context(
+            order,
+            tracking_number=order.awb_number,
+            courier_label=order.courier_label,
+            tracking_url=order.tracking_url,
+        )
         email = EmailMultiAlternatives(
             subject=subject.format(id=order.id),
             body=render_to_string(f'{template}.txt', context),
@@ -260,12 +255,7 @@ def send_invoice_email(self, order_id):
             logger.warning(f'Invoice not available for order {order_id}')
             return False
         
-        context = {
-            'order': order,
-            'user': order.user,
-            'site_url': settings.SITE_URL,
-            'frontend_url': settings.FRONTEND_URL,
-        }
+        context = _order_context(order)
         
         # Render email template
         html_message = render_to_string(

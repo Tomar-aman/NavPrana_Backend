@@ -12,7 +12,7 @@ If a refund is due, it goes back to your original payment method once the return
 View Your Order: {{ frontend_url }}/order-details/{{ order.id }}
 
 Best regards,
-NavPrana Team
+NavPrana Organics Team
 
 ---
 For any questions, please contact us at support@navprana.com

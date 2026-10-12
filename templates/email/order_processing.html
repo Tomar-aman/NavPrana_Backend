@@ -1,41 +1,8 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background-color: #FF9800; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
-        .content { border: 1px solid #ddd; padding: 20px; border-radius: 0 0 5px 5px; }
-        .info-box { background-color: #fff3e0; border: 1px solid #ffcc80; padding: 15px; margin: 15px 0; border-radius: 5px; }
-        .button { display: inline-block; background-color: #FF9800; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin-top: 15px; }
-        .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h2>Your Order Is Being Prepared</h2>
-            <p>Order #{{ order.id }}</p>
-        </div>
-        
-        <div class="content">
-            <p>Hello {{ user.first_name }},</p>
-            
-            <div class="info-box">
-                <p><strong>We are packing your order and getting it ready to ship.</strong></p>
-            </div>
-            
-            <p>We will email you the courier and tracking details as soon as it ships.</p>
-            
-            <a href="{{ frontend_url }}/order-details/{{ order.id }}" class="button">View Your Order</a>
-            
-            <p><br>Best regards,<br><strong>NavPrana Team</strong></p>
-        </div>
-        
-        <div class="footer">
-            <p>For any questions, please contact us at support@navprana.com</p>
-        </div>
-    </div>
-</body>
-</html>
+{% extends "email/base_email.html" %}
+{% block title %}Your Order Is Being Prepared{% endblock %}
+{% block heading %}Your Order Is Being Prepared{% endblock %}
+{% block content %}
+{% include "email/partials/info_box.html" with text="We are packing your order and getting it ready to ship." %}
+<p style="font-size: 15px; color: #555;">We'll email you the courier and tracking details as soon as it leaves us.</p>
+{% include "email/partials/button.html" with href=order_url label="View Your Order" %}
+{% endblock %}

@@ -13,7 +13,7 @@ Date: {{ order.updated_at|date:"F d, Y H:i" }}
 Your order is now being prepared for shipment. We will notify you with tracking information once it ships.
 
 Best regards,
-NavPrana Team
+NavPrana Organics Team
 
 ---
 For any questions, please contact us at support@navprana.com
