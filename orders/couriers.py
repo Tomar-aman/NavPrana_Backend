@@ -30,6 +30,10 @@ COURIERS = {
         'label': 'Ecom Express',
         'tracking_url': 'https://ecomexpress.in/tracking/?awb_field={awb}',
     },
+    'ekart': {
+        'label': 'Ekart',
+        'tracking_url': 'https://ekartlogistics.com/shipmenttrack/{awb}',
+    },
     'shadowfax': {
         'label': 'Shadowfax',
         'tracking_url': 'https://tracker.shadowfax.in/#/tracking/{awb}',
