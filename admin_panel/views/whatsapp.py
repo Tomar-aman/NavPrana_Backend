@@ -52,7 +52,11 @@ class WhatsAppInboxView(WhatsAppAccessMixin, PanelContextMixin, TemplateView):
     def get_breadcrumbs(self):
         return [('Support', ''), ('WhatsApp', '')]
 
-    def get_conversations(self, term):
+    #: ``?kind=`` tabs above the chat list. "chats" is anyone who has written
+    #: to us; "otp" is anyone we have sent a WhatsApp code to.
+    KINDS = (('', 'All'), ('chats', 'Chats'), ('otp', 'OTP'))
+
+    def get_conversations(self, term, kind=''):
         latest = Message.objects.filter(conversation=OuterRef('pk')).order_by('-timestamp', '-pk')
         queryset = Conversation.objects.select_related('user').annotate(
             last_body=Subquery(latest.values('body')[:1]),
@@ -70,11 +74,20 @@ class WhatsAppInboxView(WhatsAppAccessMixin, PanelContextMixin, TemplateView):
             if digits:
                 match |= Q(wa_id__contains=digits)
             queryset = queryset.filter(match)
+        if kind == 'chats':
+            queryset = queryset.filter(last_inbound_at__isnull=False)
+        elif kind == 'otp':
+            queryset = queryset.filter(
+                pk__in=Message.objects.filter(msg_type=Message.OTP).values('conversation_id')
+            )
         return queryset.order_by('-last_message_at')[:100]
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         term = (self.request.GET.get('q') or '').strip()
+        kind = self.request.GET.get('kind', '')
+        if kind not in dict(self.KINDS):
+            kind = ''
         active = None
 
         if 'pk' in self.kwargs:
@@ -98,7 +111,9 @@ class WhatsAppInboxView(WhatsAppAccessMixin, PanelContextMixin, TemplateView):
 
         context.update(
             {
-                'conversations': self.get_conversations(term),
+                'conversations': self.get_conversations(term, kind),
+                'kinds': self.KINDS,
+                'kind': kind,
                 'active': active,
                 'thread': thread,
                 'thread_truncated': len(thread) == THREAD_LIMIT,

@@ -213,3 +213,116 @@ class InboxPanelTests(PrivateStorageMixin, TestCase):
         response = self.client.get(url)
         self.assertEqual(response['Content-Type'], 'application/octet-stream')
         self.assertIn('attachment', response['Content-Disposition'])
+
+
+@override_settings(WHATSAPP_ACCESS_TOKEN='test-token', WHATSAPP_APP_SECRET=SECRET, ALLOWED_HOSTS=['*'])
+class OTPInInboxTests(TestCase):
+    """WhatsApp codes appear in the inbox thread for the number, without the code."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.admin = User.objects.create_superuser('root@example.com', 'pw-Str0ng!123')
+
+    def setUp(self):
+        from config.celery import app
+
+        previous = app.conf.task_always_eager
+        app.conf.task_always_eager = True
+        self.addCleanup(setattr, app.conf, 'task_always_eager', previous)
+
+        self.sent_codes = []
+
+        def fake_send(to, code):
+            self.sent_codes.append(code)
+            return f'wamid.otp{len(self.sent_codes)}'
+
+        patcher = mock.patch('whatsapp.client.send_otp_template', side_effect=fake_send)
+        self.send_mock = patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def send_login_otp(self, phone='9876543210'):
+        return self.client.post('/api/v1/user/otp-login/send/', {'phone_number': phone},
+                                content_type='application/json')
+
+    def post_webhook(self, body):
+        raw = json.dumps(body).encode()
+        sig = 'sha256=' + hmac.new(SECRET.encode(), raw, hashlib.sha256).hexdigest()
+        return self.client.post(WEBHOOK, raw, content_type='application/json', HTTP_X_HUB_SIGNATURE_256=sig)
+
+    def test_sent_code_shows_in_the_thread_without_the_code(self):
+        customer = User.objects.create_user('asha@example.com', 'x', phone_number='+91 98765 43210')
+        self.assertEqual(self.send_login_otp().status_code, 200)
+
+        conversation = Conversation.objects.get(wa_id='919876543210')
+        message = conversation.messages.get()
+        self.assertEqual(conversation.user, customer)
+        self.assertEqual((message.direction, message.msg_type, message.status),
+                         (Message.OUTBOUND, Message.OTP, Message.SENT))
+        self.assertEqual(message.wa_message_id, 'wamid.otp1')
+        self.assertIn('Login OTP sent', message.body)
+        self.assertNotIn(self.sent_codes[0], message.body)
+        # Not a customer message: no unread badge, and no reply window opened.
+        self.assertEqual(conversation.unread_count, 0)
+        self.assertIsNone(conversation.last_inbound_at)
+        self.assertIsNotNone(conversation.last_message_at)
+
+    def test_failed_send_is_shown_with_the_reason(self):
+        from whatsapp.client import WhatsAppError
+
+        self.send_mock.side_effect = WhatsAppError('not a WhatsApp number')
+        self.assertEqual(self.send_login_otp().status_code, 502)
+
+        message = Message.objects.get()
+        self.assertEqual(message.status, Message.FAILED)
+        self.assertIn('not a WhatsApp number', message.error)
+        self.assertIn('could not be sent', message.body)
+
+    def test_otp_joins_an_existing_chat(self):
+        existing = Conversation.objects.create(wa_id='919876543210', profile_name='Asha')
+        self.send_login_otp()
+        self.assertEqual(Conversation.objects.get(), existing)
+        self.assertEqual(existing.messages.count(), 1)
+
+    def test_delivery_ticks_update_from_the_webhook(self):
+        self.send_login_otp()
+        self.post_webhook(payload(statuses=[{'id': 'wamid.otp1', 'status': 'read'}]))
+        self.assertEqual(Message.objects.get().status, Message.READ)
+
+    def test_a_status_that_beats_the_inbox_row_is_applied_later(self):
+        from whatsapp.services import apply_status
+
+        with mock.patch('whatsapp.tasks.apply_status_later.apply_async') as later:
+            apply_status({'id': 'wamid.early', 'status': 'delivered'})
+        self.assertEqual(later.call_args.kwargs['countdown'], 10)
+
+        conversation = Conversation.objects.create(wa_id='919876543210')
+        Message.objects.create(conversation=conversation, direction=Message.OUTBOUND,
+                               msg_type=Message.OTP, wa_message_id='wamid.early', status=Message.SENT)
+        from whatsapp.tasks import apply_status_later
+        apply_status_later.apply(args=({'id': 'wamid.early', 'status': 'delivered'},))
+        self.assertEqual(Message.objects.get().status, Message.DELIVERED)
+
+    def test_broker_error_does_not_block_the_code(self):
+        with mock.patch('whatsapp.tasks.record_otp_message.apply_async',
+                        side_effect=ConnectionError('redis down')):
+            self.assertEqual(self.send_login_otp().status_code, 200)
+        self.assertFalse(Message.objects.exists())
+
+    def test_inbox_otp_filter(self):
+        chat = Conversation.objects.create(wa_id='919111111111', profile_name='Ravi',
+                                           last_inbound_at=timezone.now(), last_message_at=timezone.now())
+        Message.objects.create(conversation=chat, direction=Message.INBOUND, body='Hi', status=Message.RECEIVED)
+        self.send_login_otp()
+
+        self.client.force_login(self.admin)
+        otp_only = self.client.get(reverse('admin_panel:whatsapp') + '?kind=otp')
+        self.assertContains(otp_only, '+919876543210')
+        self.assertNotContains(otp_only, 'Ravi')
+        chats_only = self.client.get(reverse('admin_panel:whatsapp') + '?kind=chats')
+        self.assertContains(chats_only, 'Ravi')
+        self.assertNotContains(chats_only, '+919876543210')
+
+        thread = self.client.get(reverse('admin_panel:whatsapp_thread',
+                                         args=[Conversation.objects.get(wa_id='919876543210').pk]))
+        self.assertContains(thread, 'Login OTP sent')
+        self.assertNotContains(thread, self.sent_codes[0])

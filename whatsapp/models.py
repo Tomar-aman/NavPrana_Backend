@@ -96,6 +96,10 @@ class Message(models.Model):
     RANK = {PENDING: 0, SENT: 1, DELIVERED: 2, READ: 3}
 
     MEDIA_TYPES = ('image', 'video', 'audio', 'document', 'sticker')
+    #: Login/verification codes sent by users.phone_otp. Shown in the thread
+    #: so support can see a customer was sent a code; the code itself is never
+    #: stored (see whatsapp.services.record_otp_message).
+    OTP = 'otp'
 
     conversation = models.ForeignKey(
         Conversation, on_delete=models.CASCADE, related_name='messages',

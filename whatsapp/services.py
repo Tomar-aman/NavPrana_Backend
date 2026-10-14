@@ -145,10 +145,19 @@ def _queue(task, *args):
         task(*args)
 
 
-def apply_status(status):
+def apply_status(status, _retrying=False):
     """Move an outbound message's ticks forward from a status webhook."""
     message = Message.objects.filter(wa_message_id=status.get('id')).first()
     if message is None:
+        # An OTP's row is written by a worker, so Meta's first ticks can beat
+        # it here. Look again shortly rather than lose them.
+        if status.get('id') and not _retrying:
+            from .tasks import apply_status_later
+
+            try:
+                apply_status_later.apply_async(args=(status,), countdown=10, retry=False)
+            except Exception:
+                logger.warning('Could not queue status %s for a retry', status.get('id'), exc_info=True)
         return
     errors = status.get('errors') or []
     error = '; '.join(
@@ -223,4 +232,54 @@ def send_reply(conversation, user, text='', upload=None):
     message.wa_message_id, message.status = wa_id, Message.SENT
     message.save(update_fields=['wa_message_id', 'status', 'media_id'])
     Conversation.objects.filter(pk=conversation.pk).update(last_message_at=message.timestamp)
+    return message
+
+
+OTP_PURPOSE_LABELS = {'login': 'Login', 'verify': 'Phone verification', 'reset': 'Password reset'}
+
+
+def record_otp_message(phone, purpose, occurred_at, wa_message_id='', error=''):
+    """Show a WhatsApp OTP in the inbox thread for that number.
+
+    Called from a Celery task after users.phone_otp sends (or fails to send) a
+    code. The body says a code was sent and never contains the code: anyone
+    with inbox access could otherwise sign in as the customer while it is
+    live. Unread and the 24-hour reply window are left alone, since the
+    customer has not written to us.
+    """
+    wa_id = f'91{phone}'
+    label = OTP_PURPOSE_LABELS.get(purpose, purpose.title())
+    if error:
+        body = f'🔐 {label} OTP could not be sent'
+    else:
+        body = f'🔐 {label} OTP sent · valid 10 minutes'
+
+    if wa_message_id and Message.objects.filter(wa_message_id=wa_message_id).exists():
+        return None
+
+    try:
+        with transaction.atomic():
+            conversation, created = Conversation.objects.select_for_update().get_or_create(
+                wa_id=wa_id, defaults={'user': _match_user(wa_id)},
+            )
+            message = Message.objects.create(
+                conversation=conversation,
+                wa_message_id=wa_message_id or None,
+                direction=Message.OUTBOUND,
+                msg_type=Message.OTP,
+                body=body,
+                status=Message.FAILED if error else Message.SENT,
+                error=error,
+                timestamp=occurred_at,
+            )
+            updates = {}
+            if conversation.last_message_at is None or occurred_at > conversation.last_message_at:
+                updates['last_message_at'] = occurred_at
+            if not created and conversation.user_id is None:
+                updates['user'] = _match_user(wa_id)
+            if updates:
+                Conversation.objects.filter(pk=conversation.pk).update(**updates)
+    except IntegrityError:
+        # The same send recorded twice (task redelivered).
+        return None
     return message

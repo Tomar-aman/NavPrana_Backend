@@ -136,13 +136,35 @@ def send(phone, purpose, ip=None):
         # their limits or hold them in the cooldown.
         row.delete()
         logger.warning('WhatsApp OTP to %s failed: %s', phone, exc)
+        _show_in_inbox(phone, purpose, error=str(exc))
         raise PhoneOTPError(
             'Could not send a WhatsApp message to this number. '
             'Check that the number is correct and uses WhatsApp.',
             status=502,
         )
     row.save(update_fields=['wa_message_id'])
+    _show_in_inbox(phone, purpose, wa_message_id=row.wa_message_id)
     return row
+
+
+def _show_in_inbox(phone, purpose, wa_message_id='', error=''):
+    """Queue the admin inbox entry for this send; a Celery worker writes it.
+
+    A broker problem is logged and swallowed: the inbox entry is bookkeeping,
+    and must never stop a customer from getting their code.
+    """
+    from whatsapp.tasks import record_otp_message
+
+    try:
+        record_otp_message.apply_async(kwargs={
+            'phone': phone,
+            'purpose': purpose,
+            'occurred_at': timezone.now().isoformat(),
+            'wa_message_id': wa_message_id or '',
+            'error': str(error)[:500],
+        }, retry=False)
+    except Exception:
+        logger.warning('Could not queue the inbox entry for the OTP to %s', phone, exc_info=True)
 
 
 def check(phone, purpose, code, consume=True):

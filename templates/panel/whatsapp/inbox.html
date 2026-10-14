@@ -9,11 +9,18 @@
         <form class="wa__search" method="get" action="{% url 'admin_panel:whatsapp' %}">
           <input type="search" name="q" value="{{ search_term }}" placeholder="Search name or number"
                  aria-label="Search chats">
+          {% if kind %}<input type="hidden" name="kind" value="{{ kind }}">{% endif %}
         </form>
+        <nav class="wa__kinds" aria-label="Filter chats">
+          {% for value, label in kinds %}
+            <a class="wa__kind{% if value == kind %} is-active{% endif %}"
+               href="{% url 'admin_panel:whatsapp' %}?{% if value %}kind={{ value }}{% endif %}{% if search_term %}{% if value %}&amp;{% endif %}q={{ search_term|urlencode }}{% endif %}">{{ label }}</a>
+          {% endfor %}
+        </nav>
         <div class="wa__items" id="wa-items">
           {% for c in conversations %}
             <a class="wa-item{% if active and c.pk == active.pk %} is-active{% endif %}{% if c.unread_count %} has-unread{% endif %}"
-               href="{% url 'admin_panel:whatsapp_thread' c.pk %}{% if search_term %}?q={{ search_term|urlencode }}{% endif %}">
+               href="{% url 'admin_panel:whatsapp_thread' c.pk %}?{% if kind %}kind={{ kind }}&amp;{% endif %}{% if search_term %}q={{ search_term|urlencode }}{% endif %}">
               <span class="wa-item__avatar">{{ c.display_name|first|upper }}</span>
               <span class="wa-item__main">
                 <span class="wa-item__row">
@@ -34,7 +41,7 @@
             {% if search_term %}
               {% include 'panel/partials/empty_state.html' with icon='search' title='No matching chats' %}
             {% else %}
-              {% include 'panel/partials/empty_state.html' with icon='phone' title='No chats yet' body='When a customer messages the business WhatsApp number, the chat appears here.' %}
+              {% include 'panel/partials/empty_state.html' with icon='phone' title='No chats yet' body='When a customer messages the business WhatsApp number, or is sent a WhatsApp code, the chat appears here.' %}
             {% endif %}
           {% endfor %}
         </div>
@@ -90,6 +97,8 @@
                   {% else %}
                     <span class="wa-msg__file">{% panel_icon 'clock' 16 %} {{ m.msg_type|capfirst }} is downloading…</span>
                   {% endif %}
+                {% elif m.msg_type == 'otp' %}
+                  <span class="wa-msg__tag" title="Automatic WhatsApp code. The code itself is not stored.">OTP</span>
                 {% elif m.msg_type != 'text' %}
                   <span class="wa-msg__tag">{{ m.msg_type }}</span>
                 {% endif %}

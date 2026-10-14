@@ -23,3 +23,27 @@ def fetch_inbound_media(self, message_id):
         if self.request.called_directly:
             raise
         raise self.retry(exc=exc)
+
+
+@shared_task(ignore_result=True)
+def record_otp_message(phone, purpose, occurred_at, wa_message_id='', error=''):
+    """Add a sent (or failed) OTP to the inbox; see services.record_otp_message."""
+    from django.utils.dateparse import parse_datetime
+
+    from .services import record_otp_message as record
+
+    record(phone, purpose, parse_datetime(occurred_at), wa_message_id=wa_message_id, error=error)
+
+
+@shared_task(bind=True, ignore_result=True, max_retries=3, default_retry_delay=10)
+def apply_status_later(self, status):
+    """Re-apply a status whose message had not been written yet (an OTP whose
+    inbox row was still in the queue). Gives up quietly after a few tries."""
+    from .models import Message
+    from .services import apply_status
+
+    if not Message.objects.filter(wa_message_id=status.get('id')).exists():
+        if self.request.retries >= self.max_retries:
+            return
+        raise self.retry()
+    apply_status(status, _retrying=True)
